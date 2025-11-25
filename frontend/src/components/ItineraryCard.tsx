@@ -38,7 +38,11 @@ export default function ItineraryCard({ itinerary }: ItineraryCardProps) {
         </h2>
       </div>
       {Object.keys(itinerary)
-        .sort()
+        .sort((a, b) => {
+          const numA = parseInt(a.replace('day', ''));
+          const numB = parseInt(b.replace('day', ''));
+          return numA - numB;
+        })
         .map((dayKey) => {
           const day = itinerary[dayKey];
           const dayNumber = dayKey.replace('day', '');
@@ -279,8 +283,7 @@ export default function ItineraryCard({ itinerary }: ItineraryCardProps) {
               <div className="mt-6 pt-6 border-t border-dashed border-border-subtle grid grid-cols-1 md:grid-cols-2 gap-4">
                 {(day.food_recommendation || day.local_food_recommendation) && (
                   <div className="p-4 rounded-xl border border-warning/30 bg-gradient-to-br from-warning/10 to-transparent">
-                    <div className="text-xs font-bold text-warning mb-2 flex items-center gap-1.5">
-                      <span className="text-base">🍽️</span>
+                    <div className="text-xs font-bold text-warning mb-2">
                       Food Recommendation
                     </div>
                     <p className="m-0 text-xs leading-relaxed text-muted-foreground">
@@ -291,8 +294,7 @@ export default function ItineraryCard({ itinerary }: ItineraryCardProps) {
 
                 {day.cultural_highlight && (
                   <div className="p-4 rounded-xl border border-primary/30 bg-gradient-to-br from-primary/10 to-transparent">
-                    <div className="text-xs font-bold text-primary mb-2 flex items-center gap-1.5">
-                      <span className="text-base">🎭</span>
+                    <div className="text-xs font-bold text-primary mb-2">
                       Cultural Highlight
                     </div>
                     <p className="m-0 text-xs leading-relaxed text-muted-foreground">

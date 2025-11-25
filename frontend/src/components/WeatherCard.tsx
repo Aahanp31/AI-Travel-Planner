@@ -79,17 +79,14 @@ export default function WeatherCard({ weather, destination }: WeatherCardProps) 
               {today.condition.text}
             </p>
             <div className="text-sm text-muted-foreground space-y-1">
-              <p className="flex items-center gap-2">
-                <span>🌡️</span>
+              <p>
                 Low: {Math.round(today.mintemp_c)}°C / {Math.round(today.mintemp_f)}°F
               </p>
-              <p className="flex items-center gap-2">
-                <span>💨</span>
+              <p>
                 Wind: {Math.round(today.wind_speed_max)} km/h
               </p>
               {today.precipitation_probability > 0 && (
-                <p className="flex items-center gap-2 text-primary">
-                  <span>☔</span>
+                <p className="text-primary">
                   Rain: {today.precipitation_probability}%
                 </p>
               )}
@@ -135,8 +132,7 @@ export default function WeatherCard({ weather, destination }: WeatherCardProps) 
                     {day.condition.text}
                   </p>
                   {day.precipitation_probability > 0 && (
-                    <p className="text-xs text-primary flex items-center gap-1">
-                      <span>☔</span>
+                    <p className="text-xs text-primary">
                       {day.precipitation_probability}% chance of rain
                     </p>
                   )}
