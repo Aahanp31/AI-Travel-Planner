@@ -40,11 +40,13 @@
 ### Why AI Travel Planner?
 
 - **🤖 AI-Powered Planning**: Uses Google Gemini AI to create intelligent, personalized itineraries
+- **🌍 Multi-City Support**: Plan trips with multiple locations in one country
 - **💰 Smart Budget Estimates**: Dual-currency support with realistic cost breakdowns
 - **🗺️ Interactive Maps**: Visualize your trip with geocoded attractions
 - **🌤️ Weather Integration**: Get weather forecasts for your destination
 - **📰 Destination News**: Stay updated with latest news and events
 - **📚 Wikipedia Links**: Automatic links to learn more about locations
+- **🌓 Dark/Light Mode**: Toggle between themes for comfortable viewing
 - **⚡ Fast & Parallel**: All agents run in parallel for optimal performance
 - **🆓 Free APIs**: Uses free services like OpenStreetMap and Wikipedia
 
@@ -102,6 +104,8 @@ This section lists the major frameworks and libraries used in this project.
 - [Tailwind CSS](https://tailwindcss.com/) - Styling
 - [React Leaflet](https://react-leaflet.js.org/) - Interactive maps
 - [Axios](https://axios-http.com/) - HTTP client
+- [Heroicons](https://heroicons.com/) - Beautiful icons
+- [next-themes](https://github.com/pacocoursey/next-themes) - Dark mode support
 
 ### APIs & Services
 - [Google Gemini API](https://ai.google.dev/) - AI itinerary generation
@@ -190,33 +194,39 @@ This is an example of how to list things you need to use the software and how to
 
 ## 💡 Usage
 
-1. **Enter your destination**
-   - Type a city name (e.g., "Paris", "Tokyo", "New York")
-   - Optionally add country/state for better accuracy
+1. **Select your destination**
+   - Choose a country from the dropdown
+   - Optionally add specific cities/locations (comma-separated for multi-city trips)
+   - Use geolocation to auto-detect your current location as origin
 
 2. **Set trip details**
-   - Select number of days
-   - Enter departure location (optional)
-   - Choose start date
+   - Select number of days (1-14)
+   - Enter departure location (airport code or city name)
+   - Choose start date (optional)
+   - Add additional details (dietary preferences, interests, accessibility needs)
 
 3. **Plan your trip**
    - Click "Plan My Trip"
-   - Wait for AI to generate your personalized itinerary
+   - Wait for AI to generate your personalized itinerary (runs 7 agents in parallel)
 
 4. **Explore your trip**
-   - View day-by-day activities
-   - Check budget estimates
-   - See booking options
-   - Explore interactive map
-   - Check weather forecast
+   - View day-by-day activities with morning, afternoon, and evening plans
+   - Check budget estimates in local currency and USD
+   - Access booking links for hotels and flights
+   - Explore interactive map with all attractions
+   - Read Wikipedia articles about destinations
+   - Check weather forecast for your dates
+   - Browse latest news about your destination
 
 ### Example Request
 
 ```json
 {
-  "destination": "Tokyo, Japan",
-  "days": 5,
-  "origin": "LAX"
+  "country": "Japan",
+  "locations": "Tokyo, Kyoto, Osaka",
+  "days": 7,
+  "origin": "LAX",
+  "additionalDetails": "Interested in temples, traditional food, and anime culture"
 }
 ```
 
@@ -226,16 +236,25 @@ This is an example of how to list things you need to use the software and how to
 
 ### POST `/plan-trip`
 
-Plans a complete trip with itinerary, budget, bookings, map data, and weather.
+Plans a complete trip with itinerary, budget, bookings, map data, weather, and news.
 
 **Request Body:**
 ```json
 {
-  "destination": "Paris",
-  "days": 3,
-  "origin": "LAX"
+  "country": "France",
+  "locations": "Paris, Nice",
+  "days": 5,
+  "origin": "LAX",
+  "additionalDetails": "Interested in art museums and French cuisine"
 }
 ```
+
+**Request Parameters:**
+- `country` (required): Country name
+- `locations` (optional): Comma-separated list of cities
+- `days` (optional, default: 3): Number of days (1-14)
+- `origin` (optional, default: "LAX"): Departure location
+- `additionalDetails` (optional): Extra preferences or requirements
 
 **Response:**
 ```json
@@ -245,29 +264,55 @@ Plans a complete trip with itinerary, budget, bookings, map data, and weather.
       "morning": ["Visit the Eiffel Tower", "Walk along the Seine"],
       "afternoon": ["Explore the Louvre Museum"],
       "evening": ["Dinner at a Montmartre bistro"],
-      "food_recommendation": "Try authentic French baguettes",
-      "cultural_highlight": "Paris is known as the City of Light"
+      "food_recommendation": "Try authentic French baguettes and croissants",
+      "cultural_highlight": "Paris is known as the City of Light",
+      "wikipedia_links": {
+        "Eiffel Tower": "https://en.wikipedia.org/wiki/Eiffel_Tower",
+        "Louvre Museum": "https://en.wikipedia.org/wiki/Louvre"
+      }
     }
   },
   "budget": {
     "hotel": { "per_night_local": "€120", "per_night_usd": "$130 USD" },
     "food": { "per_day_local": "€50-80", "per_day_usd": "$55-87 USD" },
-    "total_estimated": { "local": "€510", "usd": "$550 USD" }
+    "transport": { "per_day_local": "€20-30", "per_day_usd": "$22-33 USD" },
+    "activities": { "per_day_local": "€40-60", "per_day_usd": "$44-66 USD" },
+    "total_estimated": { "local": "€1,150-1,550", "usd": "$1,265-1,705 USD" }
   },
   "bookings": {
-    "hotels": [...],
-    "flights": [...]
+    "hotels": [
+      { "name": "Hotels.com", "url": "https://www.hotels.com/..." },
+      { "name": "Booking.com", "url": "https://www.booking.com/..." }
+    ],
+    "flights": [
+      { "name": "Google Flights", "url": "https://www.google.com/flights/..." },
+      { "name": "Kayak", "url": "https://www.kayak.com/..." }
+    ]
   },
   "mapData": [
     {
       "name": "Eiffel Tower",
       "location": { "lat": 48.8584, "lng": 2.2945 }
+    },
+    {
+      "name": "Louvre Museum",
+      "location": { "lat": 48.8606, "lng": 2.3376 }
     }
   ],
   "weather": {
-    "current": { "temp_c": 15, "condition": { "text": "Sunny" } },
-    "forecast": [...]
-  }
+    "current": { "temp_c": 15, "condition": { "text": "Partly cloudy" } },
+    "forecast": [
+      { "date": "2024-06-15", "maxtemp_c": 22, "mintemp_c": 14, "condition": { "text": "Sunny" } }
+    ]
+  },
+  "news": [
+    {
+      "title": "Paris Hosts Major Art Exhibition",
+      "description": "The Louvre announces new Renaissance exhibition...",
+      "url": "https://...",
+      "pubDate": "2024-06-10"
+    }
+  ]
 }
 ```
 
