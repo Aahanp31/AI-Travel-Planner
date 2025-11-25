@@ -331,7 +331,7 @@ Plans a complete trip with itinerary, budget, bookings, map data, weather, and n
 - [ ] Social sharing features
 - [ ] Trip comparison tool
 
-See the [open issues](https://github.com/your_username/ai-travel-planner/issues) for a full list of proposed features (and known issues).
+See the [open issues](https://github.com/Aahanp31/AI-Travel-Planner/issues) for a full list of proposed features (and known issues).
 
 ---
 
@@ -358,9 +358,9 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 ## 📧 Contact
 
-<!-- Your Name - [@your_twitter](https://twitter.com/your_twitter) - email@example.com
+Aahan Patel - aahanpatel06@gmail.com
 
-Project Link: [https://github.com/your_username/ai-travel-planner](https://github.com/your_username/ai-travel-planner) -->
+Project Link: [https://github.com/Aahanp31/AI-Travel-Planner](https://github.com/Aahanp31/AI-Travel-Planner)
 
 ---
 
