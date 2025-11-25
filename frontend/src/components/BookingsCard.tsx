@@ -59,7 +59,7 @@ export default function BookingsCard({ bookings, origin, destination, startDate,
   return (
     <div className="mb-5">
       <h3 className="text-2xl font-bold mb-4 text-gray-800 dark:text-gray-100">
-        🏨 Booking Options
+        Booking Options
       </h3>
 
       {bookings.hotels && bookings.hotels.length > 0 && (

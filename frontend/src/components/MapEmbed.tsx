@@ -113,7 +113,7 @@ export default function MapEmbed({ mapData = [], destination }: MapEmbedProps) {
       </div>
 
       <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md text-xs text-blue-900 dark:text-blue-300">
-        📍 Powered by OpenStreetMap (free & open-source)
+        Powered by OpenStreetMap (free & open-source)
       </div>
     </div>
   );
