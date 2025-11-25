@@ -28,7 +28,7 @@
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
 - [License](#license)
-- [Contact](#contact)
+<!-- - [Contact](#contact) -->
 - [Acknowledgments](#acknowledgments)
 
 ---
@@ -43,6 +43,7 @@
 - **💰 Smart Budget Estimates**: Dual-currency support with realistic cost breakdowns
 - **🗺️ Interactive Maps**: Visualize your trip with geocoded attractions
 - **🌤️ Weather Integration**: Get weather forecasts for your destination
+- **📰 Destination News**: Stay updated with latest news and events
 - **📚 Wikipedia Links**: Automatic links to learn more about locations
 - **⚡ Fast & Parallel**: All agents run in parallel for optimal performance
 - **🆓 Free APIs**: Uses free services like OpenStreetMap and Wikipedia
@@ -74,6 +75,11 @@
   - Destinations and attractions
   - Cultural sites and landmarks
 
+- **📰 News Agent**: Latest destination news and updates:
+  - Local news articles about your destination
+  - Travel advisories and updates
+  - Cultural events and happenings
+
 - **🌤️ Weather Agent**: 3-day weather forecasts (optional)
 
 ---
@@ -101,6 +107,7 @@ This section lists the major frameworks and libraries used in this project.
 - [Google Gemini API](https://ai.google.dev/) - AI itinerary generation
 - [OpenStreetMap Nominatim](https://nominatim.openstreetmap.org/) - Geocoding (free)
 - [Wikipedia API](https://www.mediawiki.org/wiki/API:Main_page) - Location links (free)
+- [NewsData.io API](https://newsdata.io/) - Destination news (optional)
 - [WeatherAPI](https://www.weatherapi.com/) - Weather forecasts (optional)
 
 ---
@@ -153,8 +160,11 @@ This is an example of how to list things you need to use the software and how to
    PORT=4000
    GEMINI_API_KEY=your_gemini_api_key_here
    WEATHER_API_KEY=your_weather_api_key_here  # Optional
+   NEWS_API_KEY=your_news_api_key_here  # Optional
    ```
-   > **Note**: Weather API key is optional. Get one free at [weatherapi.com](https://www.weatherapi.com/) if you want weather forecasts.
+   > **Note**: Weather and News API keys are optional. Get them free at:
+   > - [weatherapi.com](https://www.weatherapi.com/) for weather forecasts
+   > - [newsdata.io](https://newsdata.io/) for destination news
 
 5. **Set up the Frontend**
    ```bash
