@@ -31,27 +31,45 @@ export interface DayItinerary {
 }
 
 export interface Itinerary {
-  [key: string]: DayItinerary;
   raw?: string;
+  [key: string]: DayItinerary | string | undefined;
 }
 
 export interface Budget {
-  hotel?: {
-    per_night?: number;
-    currency?: string;
+  city?: string;
+  days?: number;
+  destination_currency_code?: string;
+  destination_symbol?: string;
+  origin_currency_code?: string;
+  origin_symbol?: string;
+  exchange_rate?: number;
+  hotel_per_night?: {
+    min: number;
+    max: number;
+    note?: string;
   };
-  food?: {
-    per_day?: string;
-    range?: string;
+  food_per_day?: {
+    min: number;
+    max: number;
+    note?: string;
   };
-  transport?: {
-    total?: number;
-    currency?: string;
+  transport_total?: {
+    min: number;
+    max: number;
+    note?: string;
   };
-  activities?: {
-    total?: number;
-    currency?: string;
+  activities_total?: {
+    min: number;
+    max: number;
+    note?: string;
   };
+  total_budget?: {
+    min: number;
+    max: number;
+    note?: string;
+  };
+  disclaimer?: string;
+  currency?: string;
   raw?: string;
 }
 

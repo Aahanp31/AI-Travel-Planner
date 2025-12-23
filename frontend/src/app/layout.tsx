@@ -3,6 +3,9 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { AuthProvider } from "@/context/AuthContext";
+import UserMenu from "@/components/UserMenu";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -19,6 +22,8 @@ export const metadata: Metadata = {
   description: "Plan your perfect trip with AI-powered recommendations",
 };
 
+const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -30,12 +35,17 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
-        <ThemeProvider>
-          <div className="fixed top-4 right-4 z-50">
-            <ThemeToggle />
-          </div>
-          {children}
-        </ThemeProvider>
+        <GoogleOAuthProvider clientId={googleClientId}>
+          <ThemeProvider>
+            <AuthProvider>
+              <div className="fixed top-4 right-4 z-50 flex items-center gap-3">
+                <UserMenu />
+                <ThemeToggle />
+              </div>
+              {children}
+            </AuthProvider>
+          </ThemeProvider>
+        </GoogleOAuthProvider>
       </body>
     </html>
   );

@@ -7,7 +7,8 @@
       "Bash(curl:*)",
       "Bash(kill:*)",
       "Bash(npm run dev:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(conda run:*)"
     ],
     "deny": [],
     "ask": []

@@ -6,7 +6,6 @@ import axios from 'axios';
 import {
   MapPinIcon,
   CalendarIcon,
-  ClockIcon,
   GlobeAltIcon,
   SparklesIcon,
   PaperAirplaneIcon
@@ -54,16 +53,23 @@ const popularOrigins = [
 ];
 
 export default function SearchPage() {
-  const [country, setCountry] = useState('Japan');
+  const [country, setCountry] = useState('');
   const [locations, setLocations] = useState('');
   const [origin, setOrigin] = useState('');
-  const [days, setDays] = useState(3);
   const [startDate, setStartDate] = useState('');
+  const [returnDate, setReturnDate] = useState('');
+  const [tripPace, setTripPace] = useState('balanced');
   const [loading, setLoading] = useState(false);
+  const [loadingStage, setLoadingStage] = useState('');
   const [validationError, setValidationError] = useState('');
   const [additionalDetails, setAdditionalDetails] = useState('');
   const [showDetailsBox, setShowDetailsBox] = useState(false);
   const router = useRouter();
+
+  // Calculate days from start and return dates
+  const days = startDate && returnDate
+    ? Math.ceil((new Date(returnDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1
+    : 3;
 
   // Get user's current location and set as origin
   const useCurrentLocation = async () => {
@@ -164,6 +170,7 @@ export default function SearchPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    setLoadingStage('Analyzing your preferences...');
     setValidationError('');
 
     try {
@@ -174,13 +181,43 @@ export default function SearchPage() {
         return;
       }
 
+      // Show different loading stages for user feedback
+      const stageInterval = setInterval(() => {
+        const stages = [
+          'Analyzing your preferences...',
+          'Creating personalized itinerary...',
+          'Finding best attractions...',
+          'Calculating budget estimates...',
+          'Searching for accommodations...',
+          'Checking weather forecasts...',
+          'Gathering local news...',
+          'Finalizing your trip plan...'
+        ];
+        setLoadingStage(stages[Math.floor(Math.random() * stages.length)]);
+      }, 4000);
+
+      // Build additional details with trip pace
+      let fullDetails = additionalDetails.trim();
+      if (tripPace && tripPace !== 'balanced') {
+        const paceNote = `Trip pace preference: ${tripPace}`;
+        fullDetails = fullDetails ? `${paceNote}. ${fullDetails}` : paceNote;
+      }
+
       const resp = await axios.post('http://localhost:4000/plan-trip', {
         country: country,
         locations: locations.trim() || undefined,
         days,
         origin: origin || 'Your City',
-        additionalDetails: additionalDetails.trim() || undefined
+        additionalDetails: fullDetails || undefined,
+        detailLevel: 'comprehensive'  // Always use comprehensive
+      }, {
+        timeout: 300000, // 5 minutes timeout for large itinerary processing
+        onDownloadProgress: () => {
+          // Keep connection alive during long requests
+        }
       });
+
+      clearInterval(stageInterval);
 
       // Store data in sessionStorage for the trip page
       sessionStorage.setItem('tripData', JSON.stringify({
@@ -197,6 +234,7 @@ export default function SearchPage() {
       alert('Failed to plan trip: ' + (err?.response?.data?.error || err.message));
     } finally {
       setLoading(false);
+      setLoadingStage('');
     }
   }
 
@@ -247,7 +285,7 @@ export default function SearchPage() {
               list="countries-list"
               value={country}
               onChange={(e) => setCountry(e.target.value)}
-              placeholder="e.g., Japan, New Zealand, Italy"
+              placeholder="e.g., Japan, France, Italy"
               required
               className="w-full px-4 py-4 border border-border bg-card rounded-xl text-card-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-muted-foreground hover:border-primary/50 shadow-sm"
             />
@@ -268,7 +306,7 @@ export default function SearchPage() {
               type="text"
               value={locations}
               onChange={(e) => setLocations(e.target.value)}
-              placeholder="e.g., Auckland, Queenstown, Wellington"
+              placeholder="e.g., New York, London, Tokyo"
               className="w-full px-4 py-4 border border-border bg-card rounded-xl text-card-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-muted-foreground hover:border-primary/50 shadow-sm"
             />
             <p className="mt-2 text-xs text-muted-foreground">
@@ -307,7 +345,7 @@ export default function SearchPage() {
             </datalist>
           </div>
 
-          {/* Date & Duration Grid */}
+          {/* Date Grid */}
           <div className="grid grid-cols-2 gap-4">
             <div className="group">
               <label className="flex items-center gap-2 mb-3 text-sm font-semibold text-card-foreground">
@@ -325,33 +363,42 @@ export default function SearchPage() {
             </div>
             <div className="group">
               <label className="flex items-center gap-2 mb-3 text-sm font-semibold text-card-foreground">
-                <ClockIcon className="w-5 h-5 text-primary" />
-                Duration (days)
+                <CalendarIcon className="w-5 h-5 text-primary" />
+                Return Date
               </label>
               <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={days}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (value === '' || /^\d+$/.test(value)) {
-                    const num = value === '' ? 0 : Number(value);
-                    if (num >= 0 && num <= 30) {
-                      setDays(num);
-                    }
-                  }
-                }}
-                onBlur={(e) => {
-                  if (e.target.value === '' || Number(e.target.value) === 0) {
-                    setDays(1);
-                  }
-                }}
-                placeholder="1-30 days"
+                type="date"
+                value={returnDate}
+                onChange={(e) => setReturnDate(e.target.value)}
+                min={startDate || new Date().toISOString().split('T')[0]}
                 required
-                className="w-full px-4 py-4 border border-border bg-card rounded-xl text-card-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-muted-foreground hover:border-primary/50 shadow-sm"
+                className="w-full px-4 py-4 border border-border bg-card rounded-xl text-card-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all shadow-sm"
               />
             </div>
+          </div>
+
+          {/* Trip Pace Dropdown */}
+          <div className="group">
+            <label className="flex items-center gap-2 mb-3 text-sm font-semibold text-card-foreground">
+              <SparklesIcon className="w-5 h-5 text-primary" />
+              Travel Style
+            </label>
+            <select
+              value={tripPace}
+              onChange={(e) => setTripPace(e.target.value)}
+              className="w-full px-4 py-4 border border-border bg-card rounded-xl text-card-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all shadow-sm appearance-none cursor-pointer hover:border-primary/50"
+            >
+              <option value="relaxed">Relaxed - Slow pace, plenty of downtime</option>
+              <option value="balanced">Balanced - Mix of activities and relaxation (Recommended)</option>
+              <option value="active">Active - Full days with varied activities</option>
+              <option value="adventure">Adventure - Action-packed, thrill-seeking experiences</option>
+            </select>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {tripPace === 'relaxed' && '🌴 Leisurely pace with time to unwind and enjoy each moment'}
+              {tripPace === 'balanced' && '✨ Perfect mix of sightseeing and free time'}
+              {tripPace === 'active' && '🚀 Energetic itinerary packed with diverse experiences'}
+              {tripPace === 'adventure' && '⚡ High-energy activities for thrill-seekers and adventurers'}
+            </p>
           </div>
 
           {/* Additional Details Section */}
@@ -380,7 +427,15 @@ export default function SearchPage() {
                   rows={6}
                   className="w-full px-4 py-3 border border-border bg-card rounded-xl text-card-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-muted-foreground resize-none text-sm"
                 />
-                {additionalDetails && (
+                {additionalDetails && additionalDetails.length > 2000 && (
+                  <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    Large input detected - processing may take 2-3 minutes
+                  </div>
+                )}
+                {additionalDetails && additionalDetails.length <= 2000 && (
                   <div className="flex items-center gap-2 text-xs text-success">
                     <SparklesIcon className="w-4 h-4" />
                     AI will incorporate these preferences into your itinerary
@@ -410,7 +465,7 @@ export default function SearchPage() {
               {loading ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  Crafting your journey...
+                  {loadingStage || 'Crafting your journey...'}
                 </>
               ) : (
                 <>

@@ -6,10 +6,11 @@ import google.generativeai as genai
 genai.configure(api_key=os.getenv('GEMINI_API_KEY', ''))
 
 
-async def budget_agent(country: str, locations: str = None, days: int = 3, origin: str = 'United States') -> dict:
+async def budget_agent(country: str, locations: str = None, days: int = 3, origin: str = 'United States', additional_details: str = None) -> dict:
     """
     Generate a travel budget estimate using Google Gemini AI.
     First calculates costs in destination currency, then converts to origin currency.
+    Incorporates pre-booked activities and custom plans from additional_details.
     """
     # Determine destination for budgeting
     if locations and locations.strip():
@@ -19,87 +20,86 @@ async def budget_agent(country: str, locations: str = None, days: int = 3, origi
         budget_location = country
         multi_location_note = ""
 
-    prompt = f"""You are a travel budget expert. Create a detailed budget estimate for traveling to {budget_location} for {days} days.
-The traveler is coming from {origin}.{multi_location_note}
+    # Add custom activities/pre-booked items to budget context
+    custom_activities_note = ""
+    if additional_details and additional_details.strip():
+        custom_activities_note = f"\nCustom plans: {additional_details[:200]}"  # Truncate to keep prompt short
 
-STEP 1: Determine the local currency used in {budget_location}
-STEP 2: Calculate realistic costs in the LOCAL currency of {budget_location} based on current 2024-2025 prices
-STEP 3: Determine the currency used in {origin}
-STEP 4: Convert all amounts from {budget_location}'s currency to {origin}'s currency using current exchange rates
+    prompt = f"""Budget for {budget_location}, {days} days from {origin}.{multi_location_note}{custom_activities_note}
 
-Return ONLY a valid JSON object with this exact structure:
+Return ONLY this JSON (no markdown):
 {{
   "city": "{budget_location}",
   "days": {days},
-  "destination_currency_code": "THREE_LETTER_CODE",
-  "destination_symbol": "SYMBOL",
-  "origin_currency_code": "THREE_LETTER_CODE",
-  "origin_symbol": "SYMBOL",
-  "exchange_rate": 1.23,
-  "hotel_per_night": {{
-    "min": 100,
-    "max": 200,
-    "note": "¥15,000-30,000 → $100-200 USD"
-  }},
-  "food_per_day": {{
-    "min": 40,
-    "max": 80,
-    "note": "¥6,000-12,000 → $40-80 USD"
-  }},
-  "transport_total": {{
-    "min": 50,
-    "max": 100,
-    "note": "¥7,500-15,000 → $50-100 USD"
-  }},
-  "activities_total": {{
-    "min": 100,
-    "max": 200,
-    "note": "¥15,000-30,000 → $100-200 USD"
-  }},
-  "disclaimer": "Prices are estimates and may vary. Exchange rate: 1 USD = X LOCAL_CURRENCY",
+  "destination_currency_code": "CODE",
+  "destination_symbol": "$",
+  "origin_currency_code": "CODE",
+  "origin_symbol": "$",
+  "exchange_rate": 0.0,
+  "hotel_per_night": {{"min": 0, "max": 0, "note": ""}},
+  "food_per_day": {{"min": 0, "max": 0, "note": ""}},
+  "transport_total": {{"min": 0, "max": 0, "note": ""}},
+  "activities_total": {{"min": 0, "max": 0, "note": ""}},
+  "total_budget": {{"min": 0, "max": 0, "note": ""}},
   "currency": "$",
-  "total_budget": {{
-    "min": 500,
-    "max": 1000,
-    "note": "¥75,000-150,000 → $500-1000 USD"
-  }}
+  "disclaimer": ""
 }}
 
-CRITICAL INSTRUCTIONS:
-- Research actual current prices for {budget_location}
-- Use the correct local currency for {budget_location} (e.g., JPY for Japan, EUR for France, GBP for UK)
-- Use the correct currency for {origin}
-- Apply accurate current exchange rates (as of 2024-2025)
-- The "min" and "max" fields should be NUMBERS in the origin currency
-- The "note" field should show the conversion: "LOCAL_AMOUNT → ORIGIN_AMOUNT ORIGIN_CODE"
-- Include proper currency symbols (¥, €, £, ₹, etc.) in the note
-- The "currency" field should be the origin currency symbol
-- Be realistic with pricing based on {budget_location}'s cost of living
-- CALCULATE total_budget by summing: (hotel_per_night × {days}) + (food_per_day × {days}) + transport_total + activities_total
-- The total_budget should also include both the local currency calculation and origin currency conversion in the note
-- Return ONLY the JSON object, no markdown formatting, no code blocks"""
+Use 2024-2025 prices. Numbers not strings. Brief notes."""
 
-    model = genai.GenerativeModel('models/gemini-2.5-flash')
+    # Configure model with high token limit to prevent truncation
+    generation_config = genai.types.GenerationConfig(
+        temperature=0.1,  # Very low temperature for consistent JSON
+        max_output_tokens=4096,  # High limit to ensure completion
+    )
+
+    model = genai.GenerativeModel(
+        'models/gemini-2.5-flash',
+        generation_config=generation_config
+    )
+
     response = model.generate_content(prompt)
     text = response.text
 
     # Remove markdown code blocks if present
-    text = re.sub(r'```json\n?', '', text)
-    text = re.sub(r'```\n?', '', text)
+    text = re.sub(r'```json\s*\n?', '', text)
+    text = re.sub(r'```\s*\n?', '', text)
     text = text.strip()
+
+    # Try to extract JSON if there's extra text before/after
+    # Look for the JSON object boundaries
+    json_match = re.search(r'\{[\s\S]*\}', text)
+    if json_match:
+        text = json_match.group(0)
 
     try:
         budget_data = json.loads(text)
-        print(f"✅ Budget data generated successfully for {budget_location}")
-        return budget_data
+
+        # Validate that the response has the expected structure
+        required_fields = ['city', 'days', 'hotel_per_night', 'food_per_day',
+                          'transport_total', 'activities_total', 'total_budget']
+
+        if all(field in budget_data for field in required_fields):
+            print(f"✓ Budget data generated successfully for {budget_location}")
+            return budget_data
+        else:
+            print(f"⚠ Budget data missing required fields")
+            print(f"Received fields: {list(budget_data.keys())}")
+            return {
+                'raw': text,
+                'error': 'Budget response missing required fields'
+            }
+
     except json.JSONDecodeError as e:
-        print(f"❌ JSON decode error: {e}")
-        print(f"Raw response: {text}")
+        print(f"✗ JSON decode error: {e}")
+        print(f"Raw response (first 500 chars): {text[:500]}")
         return {
-            'raw': text
+            'raw': text,
+            'error': f'Failed to parse budget response: {str(e)}'
         }
     except Exception as e:
-        print(f"❌ Unexpected error: {e}")
+        print(f"✗ Unexpected error: {e}")
         return {
-            'raw': str(e)
+            'raw': str(e),
+            'error': f'Unexpected error: {str(e)}'
         }

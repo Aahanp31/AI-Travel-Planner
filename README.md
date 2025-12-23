@@ -54,16 +54,19 @@
 
 ## ✨ Features
 
+### Core AI Agents
+
 - **📅 Itinerary Agent**: Creates detailed day-by-day travel plans with:
   - Morning, afternoon, and evening activities
-  - Food recommendations
-  - Cultural highlights
+  - Food recommendations and cultural highlights
   - Multi-city support with transportation details
+  - Trip pace preferences (relaxed, balanced, active, adventure)
+  - Custom trip preferences (dietary needs, interests, existing tickets)
 
 - **💰 Budget Agent**: Estimates travel costs with:
   - Local currency and USD conversion
   - Hotel, food, transport, and activities breakdown
-  - Realistic exchange rates
+  - Realistic exchange rates and total trip estimates
 
 - **🏨 Booking Agent**: Quick links to popular booking platforms:
   - Hotels.com, Booking.com, Expedia
@@ -82,7 +85,34 @@
   - Travel advisories and updates
   - Cultural events and happenings
 
-- **🌤️ Weather Agent**: 3-day weather forecasts (optional)
+- **🌤️ Weather Agent**: 3-day weather forecasts (free, no API key needed)
+
+- **💬 AI Chat Assistant**: Real-time conversational trip modifications:
+  - Ask questions about your itinerary
+  - Request changes to activities or budget
+  - Get personalized suggestions
+  - Interactive trip planning assistance
+
+### User Features
+
+- **👤 User Authentication**: Secure account management with:
+  - Email/password registration and login
+  - Google OAuth sign-in integration
+  - JWT-based session management
+  - Profile customization with avatars
+
+- **💾 Saved Trips**: Persistent trip storage with:
+  - Save unlimited trip plans to your account
+  - View, edit, and delete saved trips
+  - Mark favorite trips for quick access
+  - Add personal notes to trips
+  - Full trip history with timestamps
+
+- **📊 PostgreSQL Database**: Production-ready data persistence:
+  - User profiles and authentication
+  - Trip data storage (itinerary, budget, bookings, etc.)
+  - Secure password hashing
+  - Relational data management
 
 ---
 
@@ -93,6 +123,9 @@ This section lists the major frameworks and libraries used in this project.
 ### Backend
 - [Python](https://www.python.org/) - Programming language
 - [Flask](https://flask.palletsprojects.com/) - Web framework
+- [PostgreSQL](https://www.postgresql.org/) - Production database
+- [SQLAlchemy](https://www.sqlalchemy.org/) - ORM and database toolkit
+- [Flask-JWT-Extended](https://flask-jwt-extended.readthedocs.io/) - JWT authentication
 - [Google Gemini AI](https://ai.google.dev/) - AI model for itinerary generation
 - [aiohttp](https://docs.aiohttp.org/) - Async HTTP client
 - [python-dotenv](https://pypi.org/project/python-dotenv/) - Environment variables
@@ -106,13 +139,15 @@ This section lists the major frameworks and libraries used in this project.
 - [Axios](https://axios-http.com/) - HTTP client
 - [Heroicons](https://heroicons.com/) - Beautiful icons
 - [next-themes](https://github.com/pacocoursey/next-themes) - Dark mode support
+- [@react-oauth/google](https://www.npmjs.com/package/@react-oauth/google) - Google OAuth integration
 
 ### APIs & Services
 - [Google Gemini API](https://ai.google.dev/) - AI itinerary generation
+- [Google OAuth 2.0](https://developers.google.com/identity/protocols/oauth2) - User authentication
 - [OpenStreetMap Nominatim](https://nominatim.openstreetmap.org/) - Geocoding (free)
 - [Wikipedia API](https://www.mediawiki.org/wiki/API:Main_page) - Location links (free)
+- [Open-Meteo](https://open-meteo.com/) - Weather forecasts (free, no API key needed)
 - [NewsData.io API](https://newsdata.io/) - Destination news (optional)
-- [WeatherAPI](https://www.weatherapi.com/) - Weather forecasts (optional)
 
 ---
 
@@ -142,9 +177,20 @@ This is an example of how to list things you need to use the software and how to
 
 ### Installation
 
-1. **Get a free Gemini API Key**
-   - Visit [Google AI Studio](https://aistudio.google.com/app/apikey)
-   - Create a new API key (free tier available)
+1. **Get required API Keys**
+   - **Gemini API Key** (required):
+     - Visit [Google AI Studio](https://aistudio.google.com/app/apikey)
+     - Create a new API key (free tier available)
+
+   - **Google OAuth Credentials** (required for authentication):
+     - Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+     - Create a new OAuth 2.0 Client ID
+     - Configure authorized redirect URIs for your domain
+     - Note down the Client ID and Client Secret
+
+   - **News API Key** (optional):
+     - Visit [NewsData.io](https://newsdata.io/)
+     - Sign up for a free API key
 
 2. **Clone the repository**
    ```bash
@@ -152,38 +198,66 @@ This is an example of how to list things you need to use the software and how to
    cd ai-travel-planner
    ```
 
-3. **Set up the Backend**
+3. **Set up PostgreSQL Database**
+   - Install PostgreSQL on your system
+   - Create a new database:
+     ```bash
+     createdb travel_planner
+     ```
+   - Or use a cloud PostgreSQL service (Heroku, Railway, Supabase, etc.)
+
+4. **Set up the Backend**
    ```bash
    cd backend
    pip install -r requirements.txt
    ```
 
-4. **Configure environment variables**
+5. **Configure Backend Environment Variables**
    Create a `.env` file in the `backend` directory:
    ```env
    PORT=4000
    GEMINI_API_KEY=your_gemini_api_key_here
-   WEATHER_API_KEY=your_weather_api_key_here  # Optional
    NEWS_API_KEY=your_news_api_key_here  # Optional
-   ```
-   > **Note**: Weather and News API keys are optional. Get them free at:
-   > - [weatherapi.com](https://www.weatherapi.com/) for weather forecasts
-   > - [newsdata.io](https://newsdata.io/) for destination news
 
-5. **Set up the Frontend**
+   # Database - PostgreSQL
+   DATABASE_URL=postgresql://username:password@localhost:5432/travel_planner
+
+   # JWT Secret (CHANGE THIS IN PRODUCTION!)
+   JWT_SECRET_KEY=your-super-secret-jwt-key-change-this
+
+   # Google OAuth
+   GOOGLE_CLIENT_ID=your-google-client-id-here
+   GOOGLE_CLIENT_SECRET=your-google-client-secret-here
+   ```
+   > **Note**:
+   > - News API key is optional. Weather forecasts use Open-Meteo (completely free, no API key needed)
+   > - Replace database credentials with your actual PostgreSQL connection details
+   > - Generate a strong JWT secret for production use
+   > - Get Google OAuth credentials from [Google Cloud Console](https://console.cloud.google.com/)
+
+6. **Set up the Frontend**
    ```bash
    cd ../frontend
    npm install
    ```
 
-6. **Start the Backend Server**
+7. **Configure Frontend Environment Variables**
+   Create a `.env.local` file in the `frontend` directory:
+   ```env
+   # Google OAuth (must be prefixed with NEXT_PUBLIC_)
+   NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id-here
+   ```
+
+8. **Start the Backend Server**
    ```bash
    cd backend
    python3 app.py
    ```
    The backend will run on [http://localhost:4000](http://localhost:4000)
 
-7. **Start the Frontend Development Server**
+   On first run, the database tables will be automatically created.
+
+9. **Start the Frontend Development Server**
    ```bash
    cd frontend
    npm run dev
@@ -194,29 +268,39 @@ This is an example of how to list things you need to use the software and how to
 
 ## 💡 Usage
 
-1. **Select your destination**
-   - Choose a country from the dropdown
-   - Optionally add specific cities/locations (comma-separated for multi-city trips)
-   - Use geolocation to auto-detect your current location as origin
+### Getting Started
 
-2. **Set trip details**
-   - Select number of days (1-14)
-   - Enter departure location (airport code or city name)
-   - Choose start date (optional)
-   - Add additional details (dietary preferences, interests, accessibility needs)
+1. **Create an Account or Sign In**
+   - Sign up with email/password or use Google Sign-In
+   - Your trips will be saved to your account automatically
 
-3. **Plan your trip**
+2. **Plan Your Trip**
+   - **Select destination**: Choose a country and optionally specific cities
+   - **Set dates**: Pick your start and return dates
+   - **Choose origin**: Enter your departure location (airport code or city)
+   - **Select trip pace**: Relaxed, Balanced, Active, or Adventure style
+   - **Add preferences** (optional): Dietary needs, interests, existing tickets, etc.
+
+3. **Generate Your Itinerary**
    - Click "Plan My Trip"
-   - Wait for AI to generate your personalized itinerary (runs 7 agents in parallel)
+   - AI generates your personalized plan (runs 8 agents in parallel)
+   - Loading typically takes 30-60 seconds
 
-4. **Explore your trip**
-   - View day-by-day activities with morning, afternoon, and evening plans
-   - Check budget estimates in local currency and USD
-   - Access booking links for hotels and flights
-   - Explore interactive map with all attractions
+4. **Explore and Customize**
+   - View detailed day-by-day itinerary with activities
+   - Check realistic budget estimates in local currency and USD
+   - Explore interactive map showing all attractions
    - Read Wikipedia articles about destinations
-   - Check weather forecast for your dates
-   - Browse latest news about your destination
+   - Check 3-day weather forecast
+   - Browse latest destination news
+   - **Use AI Chat** to modify your trip in real-time
+   - Save the trip to your account
+
+5. **Manage Your Trips**
+   - View all saved trips in your profile
+   - Mark favorites for quick access
+   - Add personal notes to trips
+   - Edit or delete trips anytime
 
 ### Example Request
 
@@ -234,7 +318,52 @@ This is an example of how to list things you need to use the software and how to
 
 ## 📡 API Documentation
 
-### POST `/plan-trip`
+### Authentication Endpoints
+
+#### POST `/api/auth/signup`
+Register a new user with email and password.
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "username": "johndoe",
+  "password": "securepassword"
+}
+```
+
+#### POST `/api/auth/login`
+Login with email and password.
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "securepassword"
+}
+```
+
+#### POST `/api/auth/google-auth`
+Authenticate with Google OAuth token.
+
+**Request Body:**
+```json
+{
+  "token": "google_oauth_token_here"
+}
+```
+
+#### GET `/api/auth/profile`
+Get current user's profile (requires authentication).
+
+**Headers:**
+```
+Authorization: Bearer <jwt_token>
+```
+
+### Trip Planning Endpoints
+
+#### POST `/plan-trip`
 
 Plans a complete trip with itinerary, budget, bookings, map data, weather, and news.
 
@@ -316,20 +445,112 @@ Plans a complete trip with itinerary, budget, bookings, map data, weather, and n
 }
 ```
 
+#### POST `/chat`
+
+Chat with AI assistant to modify your trip.
+
+**Request Body:**
+```json
+{
+  "message": "Can you add a visit to the museum on day 2?",
+  "currentTrip": {
+    "country": "France",
+    "days": 5,
+    "locations": "Paris",
+    "itinerary": { /* current itinerary */ },
+    "budget": { /* current budget */ }
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "response": "I'd be happy to add a museum visit to day 2! I suggest the Louvre Museum in the morning.",
+  "changes": {
+    "type": "itinerary",
+    "description": "Add museum visit to day 2",
+    "update_itinerary": true,
+    "suggestions": [
+      "Visit the Louvre Museum in the morning",
+      "Allow 3-4 hours for the visit",
+      "Book tickets in advance to skip the line"
+    ]
+  }
+}
+```
+
+#### POST `/api/auth/save-trip`
+
+Save a trip to user's account (requires authentication).
+
+**Headers:**
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Request Body:**
+```json
+{
+  "trip_name": "Paris Adventure 2024",
+  "country": "France",
+  "locations": "Paris, Nice",
+  "days": 5,
+  "origin": "LAX",
+  "start_date": "2024-06-15",
+  "trip_pace": "balanced",
+  "itinerary": { /* full itinerary object */ },
+  "budget": { /* full budget object */ },
+  "bookings": { /* booking links */ },
+  "mapData": [ /* map coordinates */ ],
+  "weather": { /* weather data */ },
+  "news": [ /* news articles */ ],
+  "notes": "Remember to book Eiffel Tower tickets!"
+}
+```
+
+#### GET `/api/auth/trips`
+
+Get all saved trips for current user (requires authentication).
+
+#### GET `/api/auth/trips/:id`
+
+Get a specific trip with full data (requires authentication).
+
+#### PUT `/api/auth/trips/:id`
+
+Update a saved trip (requires authentication).
+
+#### DELETE `/api/auth/trips/:id`
+
+Delete a saved trip (requires authentication).
+
 ---
 
 ## 🗺️ Roadmap
 
-- [ ] Add user authentication and trip saving
+### ✅ Completed Features
+- [x] User authentication (email/password + Google OAuth)
+- [x] Trip saving and management
+- [x] PostgreSQL database integration
+- [x] AI chat assistant for trip modifications
+- [x] Trip pace preferences
+- [x] Profile management
+- [x] Dark/Light theme toggle
+
+### 🚀 Upcoming Features
 - [ ] Real booking integration (Amadeus/RapidAPI)
 - [ ] PDF export functionality
-- [ ] Collaborative trip planning
-- [ ] Mobile app version
+- [ ] Collaborative trip planning (share with friends)
+- [ ] Mobile app version (React Native)
 - [ ] Multi-language support
 - [ ] Enhanced UI animations
-- [ ] Database integration for trip history
 - [ ] Social sharing features
 - [ ] Trip comparison tool
+- [ ] Email notifications and reminders
+- [ ] Offline mode support
+- [ ] Integration with calendar apps
+- [ ] Budget tracking and expense management
 
 See the [open issues](https://github.com/Aahanp31/AI-Travel-Planner/issues) for a full list of proposed features (and known issues).
 

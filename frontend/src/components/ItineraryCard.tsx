@@ -1,6 +1,6 @@
 'use client';
 
-import { Itinerary } from '@/types';
+import { Itinerary, DayItinerary } from '@/types';
 import {
   MapPinIcon,
   SunIcon,
@@ -12,6 +12,41 @@ import {
 
 interface ItineraryCardProps {
   itinerary: Itinerary | null;
+}
+
+// Helper function to parse markdown bold syntax (**text**)
+function parseMarkdownBold(text: string): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+  const boldRegex = /\*\*(.*?)\*\*/g;
+  let lastIndex = 0;
+  let match;
+  let matchIndex = 0;
+
+  while ((match = boldRegex.exec(text)) !== null) {
+    // Add text before the bold part
+    if (match.index > lastIndex) {
+      parts.push(
+        <span key={`text-${matchIndex}`}>{text.substring(lastIndex, match.index)}</span>
+      );
+    }
+    // Add the bold part
+    parts.push(
+      <strong key={`bold-${matchIndex}`} className="font-bold text-card-foreground">
+        {match[1]}
+      </strong>
+    );
+    lastIndex = match.index + match[0].length;
+    matchIndex++;
+  }
+
+  // Add remaining text after last bold part
+  if (lastIndex < text.length) {
+    parts.push(
+      <span key={`text-${matchIndex}`}>{text.substring(lastIndex)}</span>
+    );
+  }
+
+  return parts.length > 0 ? <>{parts}</> : text;
 }
 
 export default function ItineraryCard({ itinerary }: ItineraryCardProps) {
@@ -27,6 +62,7 @@ export default function ItineraryCard({ itinerary }: ItineraryCardProps) {
     );
   }
 
+
   return (
     <div>
       <div className="flex items-center gap-3 mb-6">
@@ -37,49 +73,45 @@ export default function ItineraryCard({ itinerary }: ItineraryCardProps) {
           Your Itinerary
         </h2>
       </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {Object.keys(itinerary)
+        .filter((key) => key !== 'raw')
         .sort((a, b) => {
           const numA = parseInt(a.replace('day', ''));
           const numB = parseInt(b.replace('day', ''));
           return numA - numB;
         })
         .map((dayKey) => {
-          const day = itinerary[dayKey];
+          const day = itinerary[dayKey] as DayItinerary;
           const dayNumber = dayKey.replace('day', '');
 
           return (
             <div
               key={dayKey}
-              className="glass-card rounded-2xl p-6 mb-5 border border-border-subtle shadow-lg hover:shadow-xl transition-shadow group"
+              className="glass-card rounded-2xl overflow-hidden border border-border-subtle shadow-lg hover:shadow-xl transition-all group"
             >
               {/* Day Header */}
-              <div className="flex items-center justify-between mb-6 pb-4 border-b border-border-subtle">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center font-bold text-primary">
-                    {dayNumber}
+              <div className="px-6 pt-6 pb-4 border-b border-border-subtle">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center font-bold text-primary">
+                      {dayNumber}
+                    </div>
+                    <h3 className="text-2xl font-bold text-card-foreground">
+                      Day {dayNumber}
+                    </h3>
                   </div>
-                  <h3 className="text-2xl font-bold text-card-foreground">
-                    Day {dayNumber}
-                  </h3>
+                  {day.location && (
+                    <div className="flex items-center gap-2">
+                      <MapPinIcon className="w-5 h-5 text-primary" />
+                      <span className="text-sm font-medium text-muted-foreground">{day.location}</span>
+                    </div>
+                  )}
                 </div>
-                {day.location && (
-                  <div className="flex items-center gap-2">
-                    <MapPinIcon className="w-5 h-5 text-primary" />
-                    <span className="text-sm font-medium text-muted-foreground">{day.location}</span>
-                    {day.location_wiki && (
-                      <a
-                        href={day.location_wiki}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary hover:text-primary-hover underline text-xs font-semibold transition-colors"
-                        title="Learn more on Wikipedia"
-                      >
-                        Wiki
-                      </a>
-                    )}
-                  </div>
-                )}
               </div>
+
+              {/* Day Content */}
+              <div className="p-6">
 
               {/* Transportation */}
               {day.transportation && (
@@ -93,19 +125,19 @@ export default function ItineraryCard({ itinerary }: ItineraryCardProps) {
                   <div className="space-y-2 text-sm text-muted-foreground">
                     <div className="flex items-start gap-2">
                       <span className="font-semibold min-w-[80px]">Method:</span>
-                      <span>{day.transportation.method}</span>
+                      <span>{parseMarkdownBold(day.transportation.method)}</span>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="font-semibold min-w-[80px]">Duration:</span>
-                      <span>{day.transportation.duration}</span>
+                      <span>{parseMarkdownBold(day.transportation.duration)}</span>
                     </div>
                     <div className="flex items-start gap-2">
                       <CurrencyDollarIcon className="w-4 h-4 mt-0.5" />
                       <span className="font-semibold min-w-[70px]">Cost:</span>
-                      <span>{day.transportation.cost_local}{day.transportation.cost_usd && ` (${day.transportation.cost_usd})`}</span>
+                      <span>{parseMarkdownBold(day.transportation.cost_local)}{day.transportation.cost_usd && ` (${parseMarkdownBold(day.transportation.cost_usd)})`}</span>
                     </div>
                     {day.transportation.travel_note && (
-                      <p className="text-xs italic pt-2 border-t border-border-subtle">{day.transportation.travel_note}</p>
+                      <p className="text-xs italic pt-2 border-t border-border-subtle">{parseMarkdownBold(day.transportation.travel_note)}</p>
                     )}
                   </div>
                 </div>
@@ -113,23 +145,21 @@ export default function ItineraryCard({ itinerary }: ItineraryCardProps) {
 
               {/* Morning */}
               {day.morning && (
-                <div className="mb-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-8 h-8 rounded-lg bg-warning/20 flex items-center justify-center">
+                <div className="mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-7 h-7 rounded-lg bg-warning/10 flex items-center justify-center">
                       <SunIcon className="w-4 h-4 text-warning" />
                     </div>
                     <span className="text-sm font-bold text-card-foreground">Morning</span>
                   </div>
                   {Array.isArray(day.morning) ? (
-                    <ul className="list-disc list-outside ml-6 space-y-2 leading-relaxed text-muted-foreground marker:text-warning">
+                    <ul className="list-disc ml-9 space-y-1.5 text-sm text-muted-foreground">
                       {day.morning.map((item, i) => {
                         if (typeof item === 'string') {
-                          return <li key={i} className="pl-1">{item}</li>;
+                          return <li key={i} className="leading-relaxed">{parseMarkdownBold(item)}</li>;
                         }
 
-                        // If there's a wiki link, make the attraction name clickable
                         if (item.wiki && item.attractionName) {
-                          // Use the exact attraction name provided by the backend
                           const attractionName = item.attractionName;
                           const indexOfAttraction = item.text.indexOf(attractionName);
 
@@ -138,8 +168,8 @@ export default function ItineraryCard({ itinerary }: ItineraryCardProps) {
                             const afterAttraction = item.text.substring(indexOfAttraction + attractionName.length);
 
                             return (
-                              <li key={i} className="pl-1">
-                                {beforeAttraction}
+                              <li key={i} className="leading-relaxed">
+                                {parseMarkdownBold(beforeAttraction)}
                                 <a
                                   href={item.wiki}
                                   target="_blank"
@@ -149,19 +179,18 @@ export default function ItineraryCard({ itinerary }: ItineraryCardProps) {
                                 >
                                   {attractionName}
                                 </a>
-                                {afterAttraction}
+                                {parseMarkdownBold(afterAttraction)}
                               </li>
                             );
                           }
                         }
 
-                        // Fallback: just show the text
-                        return <li key={i} className="pl-1">{item.text}</li>;
+                        return <li key={i} className="leading-relaxed">{parseMarkdownBold(item.text)}</li>;
                       })}
                     </ul>
                   ) : (
-                    <p className="m-0 leading-relaxed text-muted-foreground">
-                      {day.morning}
+                    <p className="ml-9 text-sm leading-relaxed text-muted-foreground">
+                      {parseMarkdownBold(day.morning as string)}
                     </p>
                   )}
                 </div>
@@ -169,23 +198,21 @@ export default function ItineraryCard({ itinerary }: ItineraryCardProps) {
 
               {/* Afternoon */}
               {day.afternoon && (
-                <div className="mb-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                <div className="mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
                       <SunIcon className="w-4 h-4 text-primary" />
                     </div>
                     <span className="text-sm font-bold text-card-foreground">Afternoon</span>
                   </div>
                   {Array.isArray(day.afternoon) ? (
-                    <ul className="list-disc list-outside ml-6 space-y-2 leading-relaxed text-muted-foreground marker:text-primary">
+                    <ul className="list-disc ml-9 space-y-1.5 text-sm text-muted-foreground">
                       {day.afternoon.map((item, i) => {
                         if (typeof item === 'string') {
-                          return <li key={i} className="pl-1">{item}</li>;
+                          return <li key={i} className="leading-relaxed">{parseMarkdownBold(item)}</li>;
                         }
 
-                        // If there's a wiki link, make the attraction name clickable
                         if (item.wiki && item.attractionName) {
-                          // Use the exact attraction name provided by the backend
                           const attractionName = item.attractionName;
                           const indexOfAttraction = item.text.indexOf(attractionName);
 
@@ -194,8 +221,8 @@ export default function ItineraryCard({ itinerary }: ItineraryCardProps) {
                             const afterAttraction = item.text.substring(indexOfAttraction + attractionName.length);
 
                             return (
-                              <li key={i} className="pl-1">
-                                {beforeAttraction}
+                              <li key={i} className="leading-relaxed">
+                                {parseMarkdownBold(beforeAttraction)}
                                 <a
                                   href={item.wiki}
                                   target="_blank"
@@ -205,19 +232,18 @@ export default function ItineraryCard({ itinerary }: ItineraryCardProps) {
                                 >
                                   {attractionName}
                                 </a>
-                                {afterAttraction}
+                                {parseMarkdownBold(afterAttraction)}
                               </li>
                             );
                           }
                         }
 
-                        // Fallback: just show the text
-                        return <li key={i} className="pl-1">{item.text}</li>;
+                        return <li key={i} className="leading-relaxed">{parseMarkdownBold(item.text)}</li>;
                       })}
                     </ul>
                   ) : (
-                    <p className="m-0 leading-relaxed text-muted-foreground">
-                      {day.afternoon}
+                    <p className="ml-9 text-sm leading-relaxed text-muted-foreground">
+                      {parseMarkdownBold(day.afternoon as string)}
                     </p>
                   )}
                 </div>
@@ -225,23 +251,21 @@ export default function ItineraryCard({ itinerary }: ItineraryCardProps) {
 
               {/* Evening */}
               {day.evening && (
-                <div className="mb-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center">
+                <div className="mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-7 h-7 rounded-lg bg-accent/10 flex items-center justify-center">
                       <MoonIcon className="w-4 h-4 text-accent" />
                     </div>
                     <span className="text-sm font-bold text-card-foreground">Evening</span>
                   </div>
                   {Array.isArray(day.evening) ? (
-                    <ul className="list-disc list-outside ml-6 space-y-2 leading-relaxed text-muted-foreground marker:text-accent">
+                    <ul className="list-disc ml-9 space-y-1.5 text-sm text-muted-foreground">
                       {day.evening.map((item, i) => {
                         if (typeof item === 'string') {
-                          return <li key={i} className="pl-1">{item}</li>;
+                          return <li key={i} className="leading-relaxed">{parseMarkdownBold(item)}</li>;
                         }
 
-                        // If there's a wiki link, make the attraction name clickable
                         if (item.wiki && item.attractionName) {
-                          // Use the exact attraction name provided by the backend
                           const attractionName = item.attractionName;
                           const indexOfAttraction = item.text.indexOf(attractionName);
 
@@ -250,8 +274,8 @@ export default function ItineraryCard({ itinerary }: ItineraryCardProps) {
                             const afterAttraction = item.text.substring(indexOfAttraction + attractionName.length);
 
                             return (
-                              <li key={i} className="pl-1">
-                                {beforeAttraction}
+                              <li key={i} className="leading-relaxed">
+                                {parseMarkdownBold(beforeAttraction)}
                                 <a
                                   href={item.wiki}
                                   target="_blank"
@@ -261,19 +285,18 @@ export default function ItineraryCard({ itinerary }: ItineraryCardProps) {
                                 >
                                   {attractionName}
                                 </a>
-                                {afterAttraction}
+                                {parseMarkdownBold(afterAttraction)}
                               </li>
                             );
                           }
                         }
 
-                        // Fallback: just show the text
-                        return <li key={i} className="pl-1">{item.text}</li>;
+                        return <li key={i} className="leading-relaxed">{parseMarkdownBold(item.text)}</li>;
                       })}
                     </ul>
                   ) : (
-                    <p className="m-0 leading-relaxed text-muted-foreground">
-                      {day.evening}
+                    <p className="ml-9 text-sm leading-relaxed text-muted-foreground">
+                      {parseMarkdownBold(day.evening as string)}
                     </p>
                   )}
                 </div>
@@ -303,9 +326,11 @@ export default function ItineraryCard({ itinerary }: ItineraryCardProps) {
                   </div>
                 )}
               </div>
+              </div>
             </div>
           );
         })}
+      </div>
     </div>
   );
 }

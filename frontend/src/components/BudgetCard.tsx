@@ -8,11 +8,36 @@ interface BudgetCardProps {
 
 export default function BudgetCard({ budget }: BudgetCardProps) {
   if (!budget) return null;
+
+  // Check if budget data failed to parse
   if (budget.raw) {
     return (
-      <pre className="whitespace-pre-wrap bg-gray-100 dark:bg-gray-800 p-4 rounded-lg mb-5">
-        {budget.raw}
-      </pre>
+      <div className="mb-5">
+        <h3 className="text-2xl font-bold mb-4 text-gray-800 dark:text-gray-100">
+          Budget Estimate
+        </h3>
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-5">
+          <div className="flex items-start gap-3 mb-3">
+            <div className="text-red-600 dark:text-red-400 text-xl">⚠️</div>
+            <div>
+              <div className="text-red-900 dark:text-red-300 font-semibold mb-2">
+                Unable to generate budget estimate
+              </div>
+              <div className="text-sm text-red-800 dark:text-red-400">
+                {(budget as any).error || 'The AI response could not be parsed. Please try again.'}
+              </div>
+            </div>
+          </div>
+          <details className="mt-3">
+            <summary className="text-sm text-red-700 dark:text-red-400 cursor-pointer hover:underline">
+              Show raw response
+            </summary>
+            <pre className="mt-2 whitespace-pre-wrap bg-red-100 dark:bg-red-950 p-3 rounded-lg text-xs text-red-900 dark:text-red-300 overflow-auto max-h-60">
+              {budget.raw}
+            </pre>
+          </details>
+        </div>
+      </div>
     );
   }
 
