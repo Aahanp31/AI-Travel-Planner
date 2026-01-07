@@ -3,6 +3,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from dotenv import load_dotenv
+from sqlalchemy import text
 from agents.itinerary_agent import itinerary_agent
 from agents.budget_agent import budget_agent
 from agents.booking_agent import booking_agent
@@ -19,23 +20,38 @@ from datetime import timedelta
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+# Production CORS - only allow Vercel frontend
+FRONTEND_URLS = [url.strip() for url in os.getenv('FRONTEND_URLS', 'http://localhost:3000').split(',')]
+CORS(app, origins=FRONTEND_URLS, supports_credentials=True)
 
 # Database configuration
 DATABASE_URL = os.getenv('DATABASE_URL')
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL environment variable is required. Please set it in your .env file.")
 
+# Strip whitespace and newlines from DATABASE_URL
+DATABASE_URL = DATABASE_URL.strip()
+
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'pool_pre_ping': True,
     'pool_recycle': 300,
+    'connect_args': {
+        'connect_timeout': 10,
+        'keepalives': 1,
+        'keepalives_idle': 30,
+        'keepalives_interval': 10,
+        'keepalives_count': 5,
+    }
 }
 
-# JWT configuration
-app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'your-secret-key-change-in-production')
-app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=30)
+# JWT configuration - require secret key, reduce token lifetime for security
+JWT_SECRET = os.getenv('JWT_SECRET_KEY', '').strip()
+if not JWT_SECRET or JWT_SECRET == 'your-secret-key-change-in-production':
+    raise ValueError("JWT_SECRET_KEY environment variable must be set to a secure value")
+app.config['JWT_SECRET_KEY'] = JWT_SECRET
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)  # Reduced from 30 days to 1 hour
 
 # Initialize extensions
 db.init_app(app)
@@ -50,6 +66,25 @@ PORT = int(os.getenv('PORT', 4000))
 with app.app_context():
     db.create_all()
     print('✓ Database initialized')
+
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint for Render monitoring"""
+    try:
+        # Check database connection
+        db.session.execute(text('SELECT 1'))
+        return jsonify({
+            'status': 'healthy',
+            'database': 'connected',
+            'service': 'ai-travel-planner-backend'
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'database': 'disconnected',
+            'error': str(e)
+        }), 500
 
 
 @app.route('/plan-trip', methods=['POST'])

@@ -72,6 +72,12 @@ class SavedTrip(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # Add indexes for frequently queried fields
+    __table_args__ = (
+        db.Index('idx_trip_user_id', 'user_id'),
+        db.Index('idx_trip_user_updated', 'user_id', 'updated_at'),
+    )
+
     def to_dict(self, include_data=False):
         """Convert saved trip to dictionary"""
         result = {
