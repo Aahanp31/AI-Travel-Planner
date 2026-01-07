@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { PaperAirplaneIcon, ChatBubbleLeftRightIcon, XMarkIcon } from '@heroicons/react/24/outline';
-import { TripResponse } from '@/types';
+import { TripResponse, DayItinerary } from '@/types';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -56,7 +56,9 @@ export default function ChatBot({ currentTrip, onTripUpdate }: ChatBotProps) {
         body: JSON.stringify({
           message: input,
           currentTrip: {
-            country: currentTrip?.itinerary ? Object.values(currentTrip.itinerary).find((day: any) => day.location)?.location || 'Unknown' : 'Unknown',
+            country: currentTrip?.itinerary
+              ? (Object.values(currentTrip.itinerary).filter((day): day is DayItinerary => typeof day === 'object' && day !== null).find(day => day.location)?.location || 'Unknown')
+              : 'Unknown',
             days: currentTrip?.budget?.days || 0,
             locations: '',
             itinerary: currentTrip?.itinerary || {},

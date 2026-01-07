@@ -1,31 +1,10 @@
 'use client';
 
 import { CloudIcon } from '@heroicons/react/24/outline';
-
-interface WeatherForecast {
-  location: string;
-  latitude: number;
-  longitude: number;
-  timezone: string;
-  forecast: {
-    date: string;
-    maxtemp_c: number;
-    maxtemp_f: number;
-    mintemp_c: number;
-    mintemp_f: number;
-    precipitation_sum: number;
-    precipitation_probability: number;
-    wind_speed_max: number;
-    weather_code: number;
-    condition: {
-      text: string;
-      icon: string;
-    };
-  }[];
-}
+import { WeatherForecast } from '@/types';
 
 interface WeatherCardProps {
-  weather: WeatherForecast | null;
+  weather: WeatherForecast | null | undefined;
   destination: string;
 }
 

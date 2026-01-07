@@ -110,27 +110,24 @@ export interface MapAttraction {
 }
 
 export interface WeatherForecast {
-  current: {
-    temp_c: number;
-    temp_f: number;
-    condition: {
-      text: string;
-      icon: string;
-    };
-    humidity: number;
-    wind_kph: number;
-  };
+  location: string;
+  latitude: number;
+  longitude: number;
+  timezone: string;
   forecast: {
     date: string;
     maxtemp_c: number;
     maxtemp_f: number;
     mintemp_c: number;
     mintemp_f: number;
+    precipitation_sum: number;
+    precipitation_probability: number;
+    wind_speed_max: number;
+    weather_code: number;
     condition: {
       text: string;
       icon: string;
     };
-    chance_of_rain: number;
   }[];
 }
 
