@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { PaperAirplaneIcon, ChatBubbleLeftRightIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { TripResponse, DayItinerary } from '@/types';
+import { API_ENDPOINTS } from '@/config/api';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -50,7 +51,7 @@ export default function ChatBot({ currentTrip, onTripUpdate }: ChatBotProps) {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:4000/chat', {
+      const response = await fetch(API_ENDPOINTS.chat, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

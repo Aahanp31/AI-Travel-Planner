@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import dynamic from 'next/dynamic';
 import axios from 'axios';
+import { API_ENDPOINTS } from '@/config/api';
 import ItineraryCard from '@/components/ItineraryCard';
 import BudgetCard from '@/components/BudgetCard';
 import BookingsCard from '@/components/BookingsCard';
@@ -75,7 +76,7 @@ export default function TripPage() {
 
     try {
       await axios.post(
-        'http://localhost:4000/api/auth/save-trip',
+        API_ENDPOINTS.saveTrip,
         {
           trip_name: tripName,
           country: tripData.country,

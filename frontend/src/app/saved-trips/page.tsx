@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
+import { API_ENDPOINTS } from '@/config/api';
 import {
   MapPinIcon,
   CalendarDaysIcon,
@@ -48,7 +49,7 @@ export default function SavedTripsPage() {
 
   const fetchTrips = async () => {
     try {
-      const response = await axios.get('http://localhost:4000/api/auth/trips', {
+      const response = await axios.get(API_ENDPOINTS.getTrips, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('auth_token')}`
         }
@@ -66,7 +67,7 @@ export default function SavedTripsPage() {
   const toggleFavorite = async (tripId: number, currentFavorite: boolean) => {
     try {
       await axios.put(
-        `http://localhost:4000/api/auth/trips/${tripId}`,
+        API_ENDPOINTS.updateTrip(tripId),
         { is_favorite: !currentFavorite },
         {
           headers: {
@@ -88,7 +89,7 @@ export default function SavedTripsPage() {
     if (!confirm('Are you sure you want to delete this trip?')) return;
 
     try {
-      await axios.delete(`http://localhost:4000/api/auth/trips/${tripId}`, {
+      await axios.delete(API_ENDPOINTS.deleteTrip(tripId), {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('auth_token')}`
         }
@@ -103,7 +104,7 @@ export default function SavedTripsPage() {
 
   const viewTrip = async (tripId: number) => {
     try {
-      const response = await axios.get(`http://localhost:4000/api/auth/trips/${tripId}`, {
+      const response = await axios.get(API_ENDPOINTS.getTrip(tripId), {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('auth_token')}`
         }

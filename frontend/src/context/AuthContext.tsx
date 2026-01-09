@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_ENDPOINTS } from '@/config/api';
 
 interface User {
   id: number;
@@ -46,7 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await axios.post('http://localhost:4000/api/auth/login', {
+      const response = await axios.post(API_ENDPOINTS.login, {
         email,
         password
       });
@@ -71,7 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signup = async (email: string, username: string, password: string) => {
     try {
-      const response = await axios.post('http://localhost:4000/api/auth/signup', {
+      const response = await axios.post(API_ENDPOINTS.signup, {
         email,
         username,
         password
@@ -97,7 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const googleAuth = async (googleToken: string) => {
     try {
-      const response = await axios.post('http://localhost:4000/api/auth/google-auth', {
+      const response = await axios.post(API_ENDPOINTS.googleAuth, {
         token: googleToken
       });
 

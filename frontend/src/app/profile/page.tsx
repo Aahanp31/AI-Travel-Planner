@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
+import { API_ENDPOINTS } from '@/config/api';
 import {
   UserCircleIcon,
   EnvelopeIcon,
@@ -45,7 +46,7 @@ export default function ProfilePage() {
 
     try {
       const response = await axios.put(
-        'http://localhost:4000/api/auth/profile',
+        API_ENDPOINTS.updateProfile,
         {
           username,
           email
@@ -85,7 +86,7 @@ export default function ProfilePage() {
 
     try {
       await axios.put(
-        'http://localhost:4000/api/auth/profile',
+        API_ENDPOINTS.updateProfile,
         {
           password: newPassword
         },

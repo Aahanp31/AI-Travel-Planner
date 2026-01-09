@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
+import { API_ENDPOINTS } from '@/config/api';
 import {
   MapPinIcon,
   CalendarIcon,
@@ -203,7 +204,7 @@ export default function SearchPage() {
         fullDetails = fullDetails ? `${paceNote}. ${fullDetails}` : paceNote;
       }
 
-      const resp = await axios.post('http://localhost:4000/plan-trip', {
+      const resp = await axios.post(API_ENDPOINTS.planTrip, {
         country: country,
         locations: locations.trim() || undefined,
         days,
