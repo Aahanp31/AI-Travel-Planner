@@ -91,50 +91,70 @@ def health_check():
 def plan_trip():
     try:
         data = request.get_json()
-        country = data.get('country')
-        locations = data.get('locations')  # Optional, comma-separated cities
-        days = data.get('days', 3)
+        trip_mode = data.get('tripMode', 'single')
         origin = data.get('origin', 'LAX')
         additional_details = data.get('additionalDetails')
-        detail_level = data.get('detailLevel', 'standard')  # quick, standard, or comprehensive
-
-        if not country:
-            return jsonify({'error': 'Country is required'}), 400
+        detail_level = data.get('detailLevel', 'standard')
 
         # Run all agents in parallel using asyncio
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-        # First batch: Run initial agents in parallel
-        itinerary_raw, budget, bookings, weather, news = loop.run_until_complete(
-            asyncio.gather(
-                itinerary_agent(country, locations, days, origin, additional_details, detail_level),
-                budget_agent(country, locations, days, origin, additional_details),
-                booking_agent(country, locations, days, origin),
-                weather_agent(country, locations, days),
-                news_agent(country, locations)
+        if trip_mode == 'multi':
+            # Multi-country mode
+            countries = data.get('countries', [])
+            if not countries or len(countries) < 2:
+                return jsonify({'error': 'At least 2 countries required for multi-country trip'}), 400
+
+            # Import multi-country agent
+            from agents.multi_country_agent import multi_country_agent
+
+            # Generate multi-country itinerary
+            result = loop.run_until_complete(
+                multi_country_agent(countries, origin, additional_details, detail_level)
             )
-        )
 
-        # Second batch: Run Wikipedia links and map data in parallel
-        # (both depend on itinerary)
-        itinerary, map_data = loop.run_until_complete(
-            asyncio.gather(
-                add_wikipedia_links(itinerary_raw),
-                map_agent(country, itinerary_raw, locations)
+            loop.close()
+            return jsonify(result)
+
+        else:
+            # Single country mode (original logic)
+            country = data.get('country')
+            locations = data.get('locations')
+            days = data.get('days', 3)
+
+            if not country:
+                return jsonify({'error': 'Country is required'}), 400
+
+            # First batch: Run initial agents in parallel
+            itinerary_raw, budget, bookings, weather, news = loop.run_until_complete(
+                asyncio.gather(
+                    itinerary_agent(country, locations, days, origin, additional_details, detail_level),
+                    budget_agent(country, locations, days, origin, additional_details),
+                    booking_agent(country, locations, days, origin),
+                    weather_agent(country, locations, days),
+                    news_agent(country, locations)
+                )
             )
-        )
 
-        loop.close()
+            # Second batch: Run Wikipedia links and map data in parallel
+            itinerary, map_data = loop.run_until_complete(
+                asyncio.gather(
+                    add_wikipedia_links(itinerary_raw),
+                    map_agent(country, itinerary_raw, locations)
+                )
+            )
 
-        return jsonify({
-            'itinerary': itinerary,
-            'budget': budget,
-            'bookings': bookings,
-            'mapData': map_data,
-            'weather': weather,
-            'news': news
-        })
+            loop.close()
+
+            return jsonify({
+                'itinerary': itinerary,
+                'budget': budget,
+                'bookings': bookings,
+                'mapData': map_data,
+                'weather': weather,
+                'news': news
+            })
 
     except Exception as err:
         import traceback

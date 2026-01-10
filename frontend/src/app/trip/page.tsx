@@ -53,10 +53,18 @@ export default function TripPage() {
     if (data) {
       const parsed = JSON.parse(data);
       setTripData(parsed);
-      // Set default trip name
-      const defaultName = parsed.locations && parsed.locations !== 'AI Selected'
-        ? `Trip to ${parsed.locations}`
-        : `Trip to ${parsed.country}`;
+      // Set default trip name based on trip mode
+      let defaultName;
+      if (parsed.tripMode === 'multi') {
+        // Multi-country trip name
+        const countryNames = parsed.countries?.map((c: any) => c.country).join(', ');
+        defaultName = `Multi-Country Trip: ${countryNames}`;
+      } else {
+        // Single country trip name
+        defaultName = parsed.locations && parsed.locations !== 'AI Selected'
+          ? `Trip to ${parsed.locations}`
+          : `Trip to ${parsed.country}`;
+      }
       setTripName(defaultName);
     }
   }, []);
@@ -135,12 +143,19 @@ export default function TripPage() {
     );
   }
 
-  const { result, country, locations, days, origin, startDate } = tripData;
+  const { result, country, locations, days, origin, startDate, tripMode, countries } = tripData;
   const { itinerary, budget, bookings, mapData, weather, news }: TripResponse = result;
 
-  // Display title - locations if specified, otherwise country
-  const displayTitle = locations && locations !== 'AI Selected' ? locations : country;
-  const displaySubtitle = locations && locations !== 'AI Selected' ? `Exploring ${country}` : null;
+  // Display title based on trip mode
+  let displayTitle, displaySubtitle;
+  if (tripMode === 'multi') {
+    const countryNames = countries?.map((c: any) => c.country).join(' → ');
+    displayTitle = countryNames || 'Multi-Country Trip';
+    displaySubtitle = `${days} days across ${countries?.length} countries`;
+  } else {
+    displayTitle = locations && locations !== 'AI Selected' ? locations : country;
+    displaySubtitle = locations && locations !== 'AI Selected' ? `Exploring ${country}` : null;
+  }
 
   // Calculate end date
   const endDate = startDate ? new Date(new Date(startDate).getTime() + (days - 1) * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : '';

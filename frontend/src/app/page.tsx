@@ -53,9 +53,18 @@ const popularOrigins = [
   'Dubai'
 ];
 
+interface CountrySegment {
+  country: string;
+  days: number;
+}
+
 export default function SearchPage() {
+  const [tripMode, setTripMode] = useState<'single' | 'multi'>('single');
   const [country, setCountry] = useState('');
   const [locations, setLocations] = useState('');
+  const [multiCountries, setMultiCountries] = useState<CountrySegment[]>([
+    { country: '', days: 3 }
+  ]);
   const [origin, setOrigin] = useState('');
   const [startDate, setStartDate] = useState('');
   const [returnDate, setReturnDate] = useState('');
@@ -67,8 +76,10 @@ export default function SearchPage() {
   const [showDetailsBox, setShowDetailsBox] = useState(false);
   const router = useRouter();
 
-  // Calculate days from start and return dates
-  const days = startDate && returnDate
+  // Calculate days from start and return dates or multi-country segments
+  const days = tripMode === 'multi'
+    ? multiCountries.reduce((sum, c) => sum + c.days, 0)
+    : startDate && returnDate
     ? Math.ceil((new Date(returnDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1
     : 3;
 
@@ -175,11 +186,26 @@ export default function SearchPage() {
     setValidationError('');
 
     try {
-      // Validate country is provided
-      if (!country) {
-        setValidationError('Please select a country');
-        setLoading(false);
-        return;
+      // Validate based on trip mode
+      if (tripMode === 'single') {
+        if (!country) {
+          setValidationError('Please select a country');
+          setLoading(false);
+          return;
+        }
+      } else {
+        // Multi-country mode validation
+        const emptyCountries = multiCountries.filter(c => !c.country.trim());
+        if (emptyCountries.length > 0) {
+          setValidationError('Please fill in all country fields');
+          setLoading(false);
+          return;
+        }
+        if (multiCountries.length < 2) {
+          setValidationError('Please add at least 2 countries for multi-country trip');
+          setLoading(false);
+          return;
+        }
       }
 
       // Show different loading stages for user feedback
@@ -204,31 +230,57 @@ export default function SearchPage() {
         fullDetails = fullDetails ? `${paceNote}. ${fullDetails}` : paceNote;
       }
 
-      const resp = await axios.post(API_ENDPOINTS.planTrip, {
-        country: country,
-        locations: locations.trim() || undefined,
-        days,
-        origin: origin || 'Your City',
-        additionalDetails: fullDetails || undefined,
-        detailLevel: 'comprehensive'  // Always use comprehensive
-      }, {
-        timeout: 300000, // 5 minutes timeout for large itinerary processing
-        onDownloadProgress: () => {
-          // Keep connection alive during long requests
-        }
-      });
+      let resp;
+      if (tripMode === 'single') {
+        // Single country mode
+        resp = await axios.post(API_ENDPOINTS.planTrip, {
+          country: country,
+          locations: locations.trim() || undefined,
+          days,
+          origin: origin || 'Your City',
+          additionalDetails: fullDetails || undefined,
+          detailLevel: 'comprehensive'
+        }, {
+          timeout: 300000,
+          onDownloadProgress: () => {}
+        });
+      } else {
+        // Multi-country mode
+        resp = await axios.post(API_ENDPOINTS.planTrip, {
+          tripMode: 'multi',
+          countries: multiCountries,
+          origin: origin || 'Your City',
+          additionalDetails: fullDetails || undefined,
+          detailLevel: 'comprehensive'
+        }, {
+          timeout: 300000,
+          onDownloadProgress: () => {}
+        });
+      }
 
       clearInterval(stageInterval);
 
       // Store data in sessionStorage for the trip page
-      sessionStorage.setItem('tripData', JSON.stringify({
-        result: resp.data,
-        country: country,
-        locations: locations || 'AI Selected',
-        days,
-        origin: origin || 'Your City',
-        startDate
-      }));
+      if (tripMode === 'single') {
+        sessionStorage.setItem('tripData', JSON.stringify({
+          result: resp.data,
+          country: country,
+          locations: locations || 'AI Selected',
+          days,
+          origin: origin || 'Your City',
+          startDate,
+          tripMode: 'single'
+        }));
+      } else {
+        sessionStorage.setItem('tripData', JSON.stringify({
+          result: resp.data,
+          countries: multiCountries,
+          days,
+          origin: origin || 'Your City',
+          startDate,
+          tripMode: 'multi'
+        }));
+      }
 
       router.push('/trip');
     } catch (err: any) {
@@ -275,45 +327,157 @@ export default function SearchPage() {
 
 
         <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
-          {/* Country Input */}
-          <div className="group">
-            <label className="flex items-center gap-2 mb-3 text-sm font-semibold text-card-foreground">
-              <GlobeAltIcon className="w-5 h-5 text-primary" />
-              Which country do you want to visit? *
-            </label>
-            <input
-              type="text"
-              list="countries-list"
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
-              placeholder="e.g., Japan, France, Italy"
-              required
-              className="w-full px-4 py-4 border border-border bg-card rounded-xl text-card-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-muted-foreground hover:border-primary/50 shadow-sm"
-            />
-            <datalist id="countries-list">
-              {countries.map((c) => (
-                <option key={c} value={c} />
-              ))}
-            </datalist>
+          {/* Trip Mode Toggle */}
+          <div className="flex gap-2 p-1 bg-muted rounded-xl">
+            <button
+              type="button"
+              onClick={() => setTripMode('single')}
+              className={`flex-1 py-3 px-4 rounded-lg font-semibold text-sm transition-all ${
+                tripMode === 'single'
+                  ? 'bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-md'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Single Country
+            </button>
+            <button
+              type="button"
+              onClick={() => setTripMode('multi')}
+              className={`flex-1 py-3 px-4 rounded-lg font-semibold text-sm transition-all ${
+                tripMode === 'multi'
+                  ? 'bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-md'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Multi-Country
+            </button>
           </div>
 
-          {/* Locations Input */}
-          <div className="group">
-            <label className="flex items-center gap-2 mb-3 text-sm font-semibold text-card-foreground">
-              <MapPinIcon className="w-5 h-5 text-primary" />
-              Specific Cities/Locations (Optional)
-            </label>
-            <input
-              type="text"
-              value={locations}
-              onChange={(e) => setLocations(e.target.value)}
-              placeholder="e.g., New York, London, Tokyo"
-              className="w-full px-4 py-4 border border-border bg-card rounded-xl text-card-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-muted-foreground hover:border-primary/50 shadow-sm"
-            />
-            <p className="mt-2 text-xs text-muted-foreground">
-              Leave blank to let AI suggest cities, or enter specific locations separated by commas
-            </p>
-          </div>
+          {/* Single Country Mode */}
+          {tripMode === 'single' && (
+            <>
+              {/* Country Input */}
+              <div className="group">
+                <label className="flex items-center gap-2 mb-3 text-sm font-semibold text-card-foreground">
+                  <GlobeAltIcon className="w-5 h-5 text-primary" />
+                  Which country do you want to visit? *
+                </label>
+                <input
+                  type="text"
+                  list="countries-list"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  placeholder="e.g., Japan, France, Italy"
+                  required
+                  className="w-full px-4 py-4 border border-border bg-card rounded-xl text-card-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-muted-foreground hover:border-primary/50 shadow-sm"
+                />
+                <datalist id="countries-list">
+                  {countries.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+              </div>
+
+              {/* Locations Input */}
+              <div className="group">
+                <label className="flex items-center gap-2 mb-3 text-sm font-semibold text-card-foreground">
+                  <MapPinIcon className="w-5 h-5 text-primary" />
+                  Specific Cities/Locations (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={locations}
+                  onChange={(e) => setLocations(e.target.value)}
+                  placeholder="e.g., New York, London, Tokyo"
+                  className="w-full px-4 py-4 border border-border bg-card rounded-xl text-card-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-muted-foreground hover:border-primary/50 shadow-sm"
+                />
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Leave blank to let AI suggest cities, or enter specific locations separated by commas
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* Multi-Country Mode */}
+          {tripMode === 'multi' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 text-sm font-semibold text-card-foreground">
+                  <GlobeAltIcon className="w-5 h-5 text-primary" />
+                  Countries & Duration
+                </label>
+                <span className="text-xs text-muted-foreground">
+                  Total: {multiCountries.reduce((sum, c) => sum + c.days, 0)} days
+                </span>
+              </div>
+
+              {multiCountries.map((segment, index) => (
+                <div key={index} className="flex gap-3 items-start p-4 rounded-xl bg-gradient-to-br from-primary/5 to-accent/5 border border-border-subtle">
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      list="countries-list"
+                      value={segment.country}
+                      onChange={(e) => {
+                        const newSegments = [...multiCountries];
+                        newSegments[index].country = e.target.value;
+                        setMultiCountries(newSegments);
+                      }}
+                      placeholder={`Country ${index + 1}`}
+                      required
+                      className="w-full px-4 py-3 border border-border bg-card rounded-xl text-card-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-muted-foreground shadow-sm"
+                    />
+                  </div>
+                  <div className="w-28">
+                    <input
+                      type="number"
+                      min="1"
+                      max="30"
+                      value={segment.days}
+                      onChange={(e) => {
+                        const newSegments = [...multiCountries];
+                        newSegments[index].days = parseInt(e.target.value) || 1;
+                        setMultiCountries(newSegments);
+                      }}
+                      placeholder="Days"
+                      required
+                      className="w-full px-4 py-3 border border-border bg-card rounded-xl text-card-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-center shadow-sm"
+                    />
+                    <p className="mt-1 text-xs text-center text-muted-foreground">days</p>
+                  </div>
+                  {multiCountries.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newSegments = multiCountries.filter((_, i) => i !== index);
+                        setMultiCountries(newSegments);
+                      }}
+                      className="mt-1 p-2 text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                      aria-label="Remove country"
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              {multiCountries.length < 5 && (
+                <button
+                  type="button"
+                  onClick={() => setMultiCountries([...multiCountries, { country: '', days: 3 }])}
+                  className="w-full py-3 px-4 border-2 border-dashed border-border hover:border-primary rounded-xl text-sm font-semibold text-muted-foreground hover:text-primary transition-all"
+                >
+                  + Add Another Country
+                </button>
+              )}
+
+              <p className="text-xs text-muted-foreground">
+                Plan your journey across multiple countries. We'll create itineraries for each and include transportation between them.
+              </p>
+            </div>
+          )}
 
           {/* Origin Input */}
           <div className="group">
