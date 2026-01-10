@@ -14,6 +14,7 @@ from agents.news_agent import news_agent
 from agents.chat_agent import chat_agent
 from models import db
 from auth_routes import auth_bp
+from utils.location_autocorrect import autocorrect_location
 import asyncio
 from datetime import timedelta
 
@@ -122,12 +123,18 @@ def plan_trip():
             if not countries or len(countries) < 2:
                 return jsonify({'error': 'At least 2 countries required for multi-country trip'}), 400
 
+            # Autocorrect all country names
+            corrected_countries = []
+            for country in countries:
+                location_result = loop.run_until_complete(autocorrect_location(country))
+                corrected_countries.append(location_result.get('corrected', country))
+
             # Import multi-country agent
             from agents.multi_country_agent import multi_country_agent
 
-            # Generate multi-country itinerary
+            # Generate multi-country itinerary with corrected names
             result = loop.run_until_complete(
-                multi_country_agent(countries, origin, additional_details, detail_level)
+                multi_country_agent(corrected_countries, origin, additional_details, detail_level)
             )
 
             loop.close()
@@ -142,14 +149,18 @@ def plan_trip():
             if not country:
                 return jsonify({'error': 'Country is required'}), 400
 
+            # Autocorrect the destination name
+            location_result = loop.run_until_complete(autocorrect_location(country))
+            corrected_country = location_result.get('corrected', country)
+
             # First batch: Run initial agents in parallel
             itinerary_raw, budget, bookings, weather, news = loop.run_until_complete(
                 asyncio.gather(
-                    itinerary_agent(country, locations, days, origin, additional_details, detail_level),
-                    budget_agent(country, locations, days, origin, additional_details),
-                    booking_agent(country, locations, days, origin),
-                    weather_agent(country, locations, days),
-                    news_agent(country, locations)
+                    itinerary_agent(corrected_country, locations, days, origin, additional_details, detail_level),
+                    budget_agent(corrected_country, locations, days, origin, additional_details),
+                    booking_agent(corrected_country, locations, days, origin),
+                    weather_agent(corrected_country, locations, days),
+                    news_agent(corrected_country, locations)
                 )
             )
 
@@ -157,7 +168,7 @@ def plan_trip():
             itinerary, map_data = loop.run_until_complete(
                 asyncio.gather(
                     add_wikipedia_links(itinerary_raw),
-                    map_agent(country, itinerary_raw, locations)
+                    map_agent(corrected_country, itinerary_raw, locations)
                 )
             )
 
@@ -169,7 +180,9 @@ def plan_trip():
                 'bookings': bookings,
                 'mapData': map_data,
                 'weather': weather,
-                'news': news
+                'news': news,
+                'correctedDestination': corrected_country,
+                'wasAutocorrected': location_result.get('was_corrected', False)
             })
 
     except Exception as err:

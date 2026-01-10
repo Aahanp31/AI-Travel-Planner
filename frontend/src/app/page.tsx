@@ -260,11 +260,19 @@ export default function SearchPage() {
 
       clearInterval(stageInterval);
 
+      // Check if destination was autocorrected
+      if (resp.data.wasAutocorrected && resp.data.correctedDestination) {
+        // Show notification about autocorrection
+        const originalName = country;
+        const correctedName = resp.data.correctedDestination;
+        console.log(`Destination autocorrected: "${originalName}" → "${correctedName}"`);
+      }
+
       // Store data in sessionStorage for the trip page
       if (tripMode === 'single') {
         sessionStorage.setItem('tripData', JSON.stringify({
           result: resp.data,
-          country: country,
+          country: resp.data.correctedDestination || country,
           locations: locations || 'AI Selected',
           days,
           origin: origin || 'Your City',
