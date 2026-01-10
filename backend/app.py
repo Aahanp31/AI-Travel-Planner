@@ -68,6 +68,22 @@ with app.app_context():
     print('✓ Database initialized')
 
 
+@app.route('/', methods=['GET'])
+def root():
+    """Root endpoint - API information"""
+    return jsonify({
+        'service': 'AI Travel Planner API',
+        'status': 'running',
+        'version': '1.0.0',
+        'endpoints': {
+            'health': '/health',
+            'auth': '/auth/*',
+            'plan_trip': '/plan-trip',
+            'chat': '/chat'
+        }
+    }), 200
+
+
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint for Render monitoring"""
