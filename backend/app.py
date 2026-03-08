@@ -1,6 +1,5 @@
 import asyncio
 import os
-import time
 import traceback
 from datetime import timedelta
 
@@ -23,7 +22,7 @@ from auth_routes import auth_bp
 from ml import ExplorationBandit, ABTestingFramework
 from ml.ab_testing import Variant
 from models import db
-from optimization import ItineraryOptimizer, ConstraintSolver
+from optimization import ItineraryOptimizer
 from performance import TripCache, QueryOptimizer
 from utils.location_autocorrect import autocorrect_location, validate_cities_in_country
 
@@ -98,7 +97,6 @@ trip_cache = TripCache(
     redis_url=os.getenv('REDIS_URL')
 )
 itinerary_optimizer = ItineraryOptimizer()
-constraint_solver = ConstraintSolver()
 query_optimizer = QueryOptimizer()
 exploration_bandit = ExplorationBandit()
 ab_testing = ABTestingFramework()
@@ -180,7 +178,6 @@ def health_check():
 @app.route('/plan-trip', methods=['POST'])
 def plan_trip():
     try:
-        request_start = time.time()
         data = request.get_json()
         trip_mode = data.get('tripMode', 'single')
         origin = data.get('origin', 'LAX')
@@ -305,8 +302,6 @@ def plan_trip():
                 if map_data and isinstance(itinerary, dict):
                     itinerary = itinerary_optimizer.optimize_daily_attractions(itinerary, map_data)
 
-                constraint_report = constraint_solver.validate_itinerary(itinerary) if isinstance(itinerary, dict) else None
-
                 return {
                     'itinerary': itinerary,
                     'budget': budget if not isinstance(budget, Exception) else None,
@@ -316,14 +311,6 @@ def plan_trip():
                     'news': news if not isinstance(news, Exception) else [],
                     'correctedDestination': corrected_country,
                     'wasAutocorrected': location_result.get('was_corrected', False),
-                    'optimization': {
-                        'route_optimized': bool(map_data),
-                        'constraint_validation': constraint_report,
-                    },
-                    'performance': {
-                        'total_latency_ms': round((time.time() - request_start) * 1000, 0),
-                        'cache_hit': cached_itinerary is not None,
-                    }
                 }
 
             try:
