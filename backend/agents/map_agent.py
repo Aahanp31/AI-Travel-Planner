@@ -1,7 +1,7 @@
-import aiohttp
 import asyncio
 import re
-from agents.wiki_agent import get_wikipedia_link
+
+import aiohttp
 
 
 async def map_agent(country: str, itinerary: dict, locations: str = None) -> list:
@@ -24,17 +24,15 @@ async def map_agent(country: str, itinerary: dict, locations: str = None) -> lis
     else:
         geocode_context = country
 
-    async def geocode_single(session, name):
-        """Geocode a single attraction with rate limiting."""
+    async def geocode_single(session, name, delay: float = 0.0):
+        """Geocode a single attraction."""
         try:
-            # Search for the attraction with country context
+            if delay:
+                await asyncio.sleep(delay)
             search_query = f'{name}, {geocode_context}'
             geocode_url = f'https://nominatim.openstreetmap.org/search?q={search_query}&format=json&limit=1'
 
             headers = {'User-Agent': 'AI-Travel-Planner/1.0'}
-
-            # Small delay before request to respect rate limits
-            await asyncio.sleep(0.15)
 
             async with session.get(geocode_url, headers=headers) as response:
                 data = await response.json()
@@ -43,9 +41,6 @@ async def map_agent(country: str, itinerary: dict, locations: str = None) -> lis
                     lat = float(data[0]['lat'])
                     lon = float(data[0]['lon'])
 
-                    # Generate Wikipedia link for this attraction
-                    wiki_link = get_wikipedia_link(name)
-
                     print(f'✓ Geocoded: {name}')
                     return {
                         'name': name,
@@ -53,8 +48,7 @@ async def map_agent(country: str, itinerary: dict, locations: str = None) -> lis
                         'location': {
                             'lat': lat,
                             'lng': lon
-                        },
-                        'wiki': wiki_link
+                        }
                     }
                 else:
                     print(f'✗ Could not geocode: {name}')
@@ -64,10 +58,10 @@ async def map_agent(country: str, itinerary: dict, locations: str = None) -> lis
             print(f'Error geocoding {name}: {str(e)}')
             return None
 
-    # Run all geocoding requests concurrently with timeout
-    timeout = aiohttp.ClientTimeout(total=10)
+    # Stagger by 1.1s each to respect Nominatim's strict 1 req/s rate limit
+    timeout = aiohttp.ClientTimeout(total=15)
     async with aiohttp.ClientSession(timeout=timeout) as session:
-        tasks = [geocode_single(session, name) for name in attraction_names]
+        tasks = [geocode_single(session, name, delay=i * 1.1) for i, name in enumerate(attraction_names)]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Filter out None results and exceptions
@@ -123,11 +117,10 @@ def extract_attractions(itinerary: dict) -> list:
         cleaned = re.sub(r'^(?:iconic|serene|tranquil)\s+', '', cleaned, flags=re.IGNORECASE)
         cleaned_attractions.append(cleaned)
 
-    # Limit to top 8 attractions for faster geocoding (prevents delays)
-    # Prioritize: keep unique landmarks, remove generic activities
-    if len(cleaned_attractions) > 8:
-        print(f'⚡ Limiting to top 8 attractions for faster response time')
-        cleaned_attractions = cleaned_attractions[:8]
+    # Limit to top 5 attractions — Nominatim needs 1.1s between requests, so 5 = ~5.5s max
+    if len(cleaned_attractions) > 5:
+        print(f'⚡ Limiting to top 5 attractions for faster response time')
+        cleaned_attractions = cleaned_attractions[:5]
 
     return cleaned_attractions
 

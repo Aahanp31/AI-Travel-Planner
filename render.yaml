@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: ai-travel-planner-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt && python -m spacy download en_core_web_sm
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --timeout 180 --workers 1 app:app
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: FRONTEND_URLS
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: NEWS_API_KEY
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.11.0

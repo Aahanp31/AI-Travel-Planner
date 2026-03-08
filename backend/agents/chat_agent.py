@@ -1,8 +1,11 @@
-import os
+import asyncio
 import json
-import google.generativeai as genai
+import os
 
-genai.configure(api_key=os.getenv('GEMINI_API_KEY', ''))
+from google import genai
+from google.genai import types
+
+_client = genai.Client(api_key=os.getenv('GEMINI_API_KEY', ''))
 
 
 async def chat_agent(user_message: str, current_trip: dict) -> dict:
@@ -59,17 +62,21 @@ Examples:
 
 Be conversational and helpful. If unclear, ask for clarification."""
 
-    generation_config = genai.types.GenerationConfig(
-        temperature=0.7,
-        max_output_tokens=2048,
-    )
-
-    model = genai.GenerativeModel(
-        'models/gemini-2.5-flash',
-        generation_config=generation_config
-    )
-
-    response = model.generate_content(prompt)
+    try:
+        response = await asyncio.wait_for(
+            _client.aio.models.generate_content(
+                model='gemini-2.0-flash',
+                contents=prompt,
+                config=types.GenerateContentConfig(temperature=0.7, max_output_tokens=1024),
+            ),
+            timeout=60.0
+        )
+    except asyncio.TimeoutError:
+        print("WARNING: Gemini chat request timed out after 60s")
+        return {
+            'response': 'Sorry, the response took too long. Please try again.',
+            'suggestions': []
+        }
     text = response.text.strip()
 
     # Clean markdown if present

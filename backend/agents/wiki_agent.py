@@ -1,8 +1,9 @@
-import re
-import spacy
-import urllib.parse
-import aiohttp
 import asyncio
+import re
+import urllib.parse
+
+import aiohttp
+import spacy
 
 # Load spaCy model for POS tagging
 try:
@@ -27,34 +28,29 @@ async def verify_wikipedia_link(url: str, session: aiohttp.ClientSession) -> boo
         return False
 
 
-async def get_wikipedia_link(location: str, session: aiohttp.ClientSession) -> str:
+async def get_wikipedia_link(location: str, session: aiohttp.ClientSession, semaphore: asyncio.Semaphore) -> str:
     """
     Construct a Wikipedia URL from the location name and verify it exists.
     Returns the URL only if the page actually exists, None otherwise.
+    Uses a semaphore to cap concurrent requests.
     """
     if not location or len(location) < 3:
         return None
 
-    # Replace spaces with underscores for Wikipedia URL format
-    formatted_topic = location.replace(' ', '_')
+    async with semaphore:
+        formatted_topic = urllib.parse.quote(location.replace(' ', '_'), safe='_')
+        wiki_url = f'https://en.wikipedia.org/wiki/{formatted_topic}'
 
-    # URL encode special characters
-    formatted_topic = urllib.parse.quote(formatted_topic, safe='_')
+        if await verify_wikipedia_link(wiki_url, session):
+            return wiki_url
 
-    # Construct Wikipedia URL
-    wiki_url = f'https://en.wikipedia.org/wiki/{formatted_topic}'
-
-    # Verify the link actually works
-    if await verify_wikipedia_link(wiki_url, session):
-        return wiki_url
-
-    # Try with first letter capitalized variant
-    if location and location[0].islower():
-        capitalized = location[0].upper() + location[1:]
-        formatted_topic = urllib.parse.quote(capitalized.replace(' ', '_'), safe='_')
-        alt_url = f'https://en.wikipedia.org/wiki/{formatted_topic}'
-        if await verify_wikipedia_link(alt_url, session):
-            return alt_url
+        # Try with first letter capitalized
+        if location and location[0].islower():
+            capitalized = location[0].upper() + location[1:]
+            formatted_topic = urllib.parse.quote(capitalized.replace(' ', '_'), safe='_')
+            alt_url = f'https://en.wikipedia.org/wiki/{formatted_topic}'
+            if await verify_wikipedia_link(alt_url, session):
+                return alt_url
 
     return None
 
@@ -179,79 +175,83 @@ def extract_attraction_name_regex(activity: str) -> str:
     return None
 
 
-async def process_activities(activities, session: aiohttp.ClientSession):
-    """
-    Process activities to add Wikipedia links.
-    """
-    if not activities:
-        return activities
-
-    # If it's a string, return as is
-    if isinstance(activities, str):
-        return activities
-
-    # If it's an array of strings, convert to activity objects with Wikipedia links
-    if isinstance(activities, list):
-        processed_activities = []
-
-        for activity in activities:
-            if isinstance(activity, str):
-                attraction_name = extract_attraction_name(activity)
-
-                # Only create Wikipedia link if we successfully extracted an attraction name
-                if attraction_name and len(attraction_name) > 4:
-                    wiki_link = await get_wikipedia_link(attraction_name, session)
-
-                    if wiki_link:
-                        print(f'✓ Verified Wikipedia link for "{attraction_name}": {wiki_link}')
-                        processed_activities.append({'text': activity, 'wiki': wiki_link, 'attractionName': attraction_name})
-                    else:
-                        print(f'✗ No valid Wikipedia page found for "{attraction_name}"')
-                        processed_activities.append({'text': activity})
-                else:
-                    # Couldn't extract a good attraction name, skip Wikipedia link
-                    processed_activities.append({'text': activity})
-            else:
-                # Already an object, keep as is
-                processed_activities.append(activity)
-
-        return processed_activities
-
-    return activities
-
-
 async def add_wikipedia_links(itinerary: dict) -> dict:
     """
     Add Wikipedia links to locations and attractions in the itinerary.
-    Uses async HTTP requests for faster processing.
+    All link checks run concurrently (not sequentially) using asyncio.gather.
+    A semaphore caps concurrent Wikipedia HEAD requests to avoid overwhelming the API.
     """
-    # If raw format, return as is
     if 'raw' in itinerary:
         return itinerary
 
-    updated_itinerary = {}
+    # Limit concurrent HEAD requests to Wikipedia (avoids rate-limiting)
+    semaphore = asyncio.Semaphore(10)
+    timeout = aiohttp.ClientTimeout(total=20)
 
-    # Create a single aiohttp session for all requests (connection pooling)
-    timeout = aiohttp.ClientTimeout(total=30)  # Overall timeout for all wiki requests
     async with aiohttp.ClientSession(timeout=timeout) as session:
-        for day_key, day in itinerary.items():
-            updated_itinerary[day_key] = {**day}
 
-            # If this day has a location, create Wikipedia link
-            if 'location' in day and day['location']:
-                wiki_link = await get_wikipedia_link(day['location'], session)
-                if wiki_link:
-                    updated_itinerary[day_key]['location_wiki'] = wiki_link
-                    print(f'✓ Verified Wikipedia link for {day["location"]}: {wiki_link}')
+        async def get_wiki(location: str) -> str:
+            return await get_wikipedia_link(location, session, semaphore)
+
+        async def process_activity(activity) -> dict:
+            """Process a single activity: extract name and fetch wiki link concurrently."""
+            if isinstance(activity, str):
+                attraction_name = extract_attraction_name(activity)
+                if attraction_name and len(attraction_name) > 4:
+                    wiki_link = await get_wiki(attraction_name)
+                    if wiki_link:
+                        return {'text': activity, 'wiki': wiki_link, 'attractionName': attraction_name}
+                return {'text': activity}
+            # Already an object — keep as-is
+            return activity
+
+        async def process_period(activities) -> list:
+            """Process all activities in a period concurrently."""
+            if not activities or isinstance(activities, str):
+                return activities
+            return list(await asyncio.gather(*[process_activity(a) for a in activities]))
+
+        async def process_day(day_key: str, day: dict):
+            """Process a day: location wiki + all periods run in parallel."""
+            day_result = {**day}
+
+            # Build all tasks for this day
+            period_keys = [p for p in ('morning', 'afternoon', 'evening') if isinstance(day.get(p), list)]
+            location = day.get('location') if day.get('location') else None
+
+            # Run location wiki + all periods concurrently
+            tasks = []
+            task_labels = []
+
+            if location:
+                tasks.append(get_wiki(location))
+                task_labels.append('__location__')
+
+            for period in period_keys:
+                tasks.append(process_period(day[period]))
+                task_labels.append(period)
+
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            for label, result in zip(task_labels, results):
+                if isinstance(result, Exception):
+                    continue
+                if label == '__location__':
+                    if result:
+                        day_result['location_wiki'] = result
                 else:
-                    print(f'✗ No valid Wikipedia page found for location "{day["location"]}"')
+                    day_result[label] = result
 
-            # Process activities for morning, afternoon, and evening
-            if 'morning' in day:
-                updated_itinerary[day_key]['morning'] = await process_activities(day['morning'], session)
-            if 'afternoon' in day:
-                updated_itinerary[day_key]['afternoon'] = await process_activities(day['afternoon'], session)
-            if 'evening' in day:
-                updated_itinerary[day_key]['evening'] = await process_activities(day['evening'], session)
+            return day_key, day_result
 
-    return updated_itinerary
+        # Process ALL days concurrently
+        day_tasks = [process_day(k, v) for k, v in itinerary.items()]
+        day_results = await asyncio.gather(*day_tasks, return_exceptions=True)
+
+        updated = {}
+        for result in day_results:
+            if not isinstance(result, Exception):
+                day_key, day_data = result
+                updated[day_key] = day_data
+
+        return updated

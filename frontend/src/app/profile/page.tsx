@@ -198,7 +198,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Change Password */}
-        {!user.profile_picture && (
+        {user.has_password && (
           <div className="glass-card rounded-2xl p-8 border border-border-subtle shadow-lg">
             <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-3">
               <KeyIcon className="w-6 h-6 text-primary" />

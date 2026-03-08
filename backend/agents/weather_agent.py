@@ -1,3 +1,5 @@
+import traceback
+
 import aiohttp
 
 
@@ -30,119 +32,74 @@ WEATHER_CODES = {
 }
 
 
-async def geocode_location(location: str) -> tuple:
-    """
-    Geocode a location to get latitude and longitude using Open-Meteo's geocoding API.
-    """
-    try:
-        url = 'https://geocoding-api.open-meteo.com/v1/search'
-        params = {
-            'name': location,
-            'count': 1,
-            'language': 'en',
-            'format': 'json'
-        }
-
-        timeout = aiohttp.ClientTimeout(total=3)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(url, params=params) as response:
-                data = await response.json()
-
-                if data.get('results') and len(data['results']) > 0:
-                    result = data['results'][0]
-                    return (result['latitude'], result['longitude'], result.get('name', location))
-
-                return None
-
-    except Exception as error:
-        print(f'Error geocoding location {location}: {error}')
-        return None
-
-
 async def weather_agent(country: str, locations: str = None, days: int = 3) -> dict:
     """
     Fetch weather forecast for the destination using Open-Meteo API (completely free, no API key needed).
+    Uses a single aiohttp session for both geocoding and forecast requests.
     """
+    weather_location = f"{locations.split(',')[0].strip()}, {country}" if locations and locations.strip() else country
+
     try:
-        # Determine which location to get weather for
-        if locations and locations.strip():
-            # Use first specified location
-            weather_location = f"{locations.split(',')[0].strip()}, {country}"
-        else:
-            # Use country (API will determine capital/major city)
-            weather_location = country
+        timeout = aiohttp.ClientTimeout(total=8)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            # Step 1: Geocode
+            geo_params = {'name': weather_location, 'count': 1, 'language': 'en', 'format': 'json'}
+            async with session.get('https://geocoding-api.open-meteo.com/v1/search', params=geo_params) as geo_resp:
+                geo_data = await geo_resp.json()
 
-        # First, geocode the destination to get coordinates
-        geocode_result = await geocode_location(weather_location)
+            if not geo_data.get('results'):
+                print(f'Could not geocode destination: {weather_location}')
+                return None
 
-        if not geocode_result:
-            print(f'Could not geocode destination: {weather_location}')
+            result = geo_data['results'][0]
+            latitude, longitude, location_name = result['latitude'], result['longitude'], result.get('name', weather_location)
+
+            # Step 2: Fetch forecast
+            forecast_days = min(days, 16)
+            params = {
+                'latitude': latitude,
+                'longitude': longitude,
+                'daily': 'temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weathercode,windspeed_10m_max',
+                'timezone': 'auto',
+                'forecast_days': forecast_days,
+                'temperature_unit': 'celsius'
+            }
+            async with session.get('https://api.open-meteo.com/v1/forecast', params=params) as resp:
+                data = await resp.json()
+
+        if 'daily' not in data:
+            print(f'No weather data available for {weather_location}')
             return None
 
-        latitude, longitude, location_name = geocode_result
-
-        # Limit forecast to max 16 days (Open-Meteo limit)
-        forecast_days = min(days, 16)
-
-        # Fetch weather data from Open-Meteo
-        url = 'https://api.open-meteo.com/v1/forecast'
-        params = {
+        daily = data['daily']
+        weather_data = {
+            'location': location_name,
             'latitude': latitude,
             'longitude': longitude,
-            'daily': 'temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weathercode,windspeed_10m_max',
-            'timezone': 'auto',
-            'forecast_days': forecast_days,
-            'temperature_unit': 'celsius'
+            'timezone': data.get('timezone', 'UTC'),
+            'forecast': []
         }
 
-        timeout = aiohttp.ClientTimeout(total=5)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(url, params=params) as response:
-                data = await response.json()
+        for i in range(len(daily['time'])):
+            weather_code = daily['weathercode'][i]
+            condition_text, condition_icon = WEATHER_CODES.get(weather_code, ("Unknown", "❓"))
+            weather_data['forecast'].append({
+                'date': daily['time'][i],
+                'maxtemp_c': round(daily['temperature_2m_max'][i], 1),
+                'mintemp_c': round(daily['temperature_2m_min'][i], 1),
+                'maxtemp_f': round(daily['temperature_2m_max'][i] * 9/5 + 32, 1),
+                'mintemp_f': round(daily['temperature_2m_min'][i] * 9/5 + 32, 1),
+                'precipitation_sum': round(daily['precipitation_sum'][i], 1),
+                'precipitation_probability': daily['precipitation_probability_max'][i],
+                'wind_speed_max': round(daily['windspeed_10m_max'][i], 1),
+                'weather_code': weather_code,
+                'condition': {'text': condition_text, 'icon': condition_icon}
+            })
 
-                if 'daily' not in data:
-                    print(f'No weather data available for {destination}')
-                    return None
-
-                daily = data['daily']
-
-                # Build weather forecast
-                weather_data = {
-                    'location': location_name,
-                    'latitude': latitude,
-                    'longitude': longitude,
-                    'timezone': data.get('timezone', 'UTC'),
-                    'forecast': []
-                }
-
-                # Process each day
-                for i in range(len(daily['time'])):
-                    weather_code = daily['weathercode'][i]
-                    condition_text, condition_icon = WEATHER_CODES.get(weather_code, ("Unknown", "❓"))
-
-                    day_forecast = {
-                        'date': daily['time'][i],
-                        'maxtemp_c': round(daily['temperature_2m_max'][i], 1),
-                        'mintemp_c': round(daily['temperature_2m_min'][i], 1),
-                        'maxtemp_f': round(daily['temperature_2m_max'][i] * 9/5 + 32, 1),
-                        'mintemp_f': round(daily['temperature_2m_min'][i] * 9/5 + 32, 1),
-                        'precipitation_sum': round(daily['precipitation_sum'][i], 1),
-                        'precipitation_probability': daily['precipitation_probability_max'][i],
-                        'wind_speed_max': round(daily['windspeed_10m_max'][i], 1),
-                        'weather_code': weather_code,
-                        'condition': {
-                            'text': condition_text,
-                            'icon': condition_icon
-                        }
-                    }
-
-                    weather_data['forecast'].append(day_forecast)
-
-                print(f'✓ Fetched {forecast_days}-day weather forecast for {location_name}')
-                return weather_data
+        print(f'✓ Fetched {forecast_days}-day weather forecast for {location_name}')
+        return weather_data
 
     except Exception as error:
         print(f'Error fetching weather for {weather_location}: {error}')
-        import traceback
         traceback.print_exc()
         return None

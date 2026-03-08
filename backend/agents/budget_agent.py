@@ -1,9 +1,12 @@
+import asyncio
+import json
 import os
 import re
-import json
-import google.generativeai as genai
 
-genai.configure(api_key=os.getenv('GEMINI_API_KEY', ''))
+from google import genai
+from google.genai import types
+
+_client = genai.Client(api_key=os.getenv('GEMINI_API_KEY', ''))
 
 
 async def budget_agent(country: str, locations: str = None, days: int = 3, origin: str = 'United States', additional_details: str = None) -> dict:
@@ -47,18 +50,18 @@ Return ONLY this JSON (no markdown):
 
 Use 2024-2025 prices. Numbers not strings. Brief notes."""
 
-    # Configure model with high token limit to prevent truncation
-    generation_config = genai.types.GenerationConfig(
-        temperature=0.1,  # Very low temperature for consistent JSON
-        max_output_tokens=4096,  # High limit to ensure completion
-    )
-
-    model = genai.GenerativeModel(
-        'models/gemini-2.5-flash',
-        generation_config=generation_config
-    )
-
-    response = model.generate_content(prompt)
+    try:
+        response = await asyncio.wait_for(
+            _client.aio.models.generate_content(
+                model='gemini-2.0-flash',
+                contents=prompt,
+                config=types.GenerateContentConfig(temperature=0.1, max_output_tokens=1024),
+            ),
+            timeout=60.0
+        )
+    except asyncio.TimeoutError:
+        print("WARNING: Gemini budget request timed out after 60s")
+        return {'error': 'Budget generation timed out. Please try again.'}
     text = response.text
 
     # Remove markdown code blocks if present

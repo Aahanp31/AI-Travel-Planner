@@ -1,9 +1,12 @@
+import asyncio
+import json
 import os
 import re
-import json
-import google.generativeai as genai
 
-genai.configure(api_key=os.getenv('GEMINI_API_KEY', ''))
+from google import genai
+from google.genai import types
+
+_client = genai.Client(api_key=os.getenv('GEMINI_API_KEY', ''))
 
 
 async def itinerary_agent(country: str, locations: str = None, days: int = 3, origin: str = '', additional_details: str = None, detail_level: str = 'standard') -> dict:
@@ -294,19 +297,20 @@ Return ONLY valid JSON with keys 'day1', 'day2', etc. Example:
   }}
 }}{additional_context}"""
 
-    # Configure model for faster response with reasonable quality
-    # For large custom itineraries, we need more tokens
-    generation_config = genai.types.GenerationConfig(
-        temperature=0.7,
-        max_output_tokens=8192,  # Increased for detailed multi-day itineraries with custom preferences
-    )
+    max_tokens = 3072 if detail_level == 'comprehensive' else 2048
 
-    model = genai.GenerativeModel(
-        'models/gemini-2.5-flash',
-        generation_config=generation_config
-    )
-
-    response = model.generate_content(prompt)
+    try:
+        response = await asyncio.wait_for(
+            _client.aio.models.generate_content(
+                model='gemini-2.0-flash',
+                contents=prompt,
+                config=types.GenerateContentConfig(temperature=0.7, max_output_tokens=max_tokens),
+            ),
+            timeout=90.0
+        )
+    except asyncio.TimeoutError:
+        print("WARNING: Gemini itinerary request timed out after 90s")
+        return {'error': 'Itinerary generation timed out. Please try again.'}
     text = response.text
 
     # Remove markdown code blocks if present

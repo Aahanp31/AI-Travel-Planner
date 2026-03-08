@@ -1,9 +1,3 @@
-export interface TripRequest {
-  destination: string;
-  days: number;
-  origin?: string;
-}
-
 export interface Transportation {
   method: string;
   duration: string;

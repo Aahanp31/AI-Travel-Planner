@@ -239,9 +239,9 @@ export default function SearchPage() {
           days,
           origin: origin || 'Your City',
           additionalDetails: fullDetails || undefined,
-          detailLevel: 'comprehensive'
+          detailLevel: 'standard'
         }, {
-          timeout: 300000,
+          timeout: 180000,
           onDownloadProgress: () => {}
         });
       } else {
@@ -251,9 +251,9 @@ export default function SearchPage() {
           countries: multiCountries,
           origin: origin || 'Your City',
           additionalDetails: fullDetails || undefined,
-          detailLevel: 'comprehensive'
+          detailLevel: 'standard'
         }, {
-          timeout: 300000,
+          timeout: 180000,
           onDownloadProgress: () => {}
         });
       }

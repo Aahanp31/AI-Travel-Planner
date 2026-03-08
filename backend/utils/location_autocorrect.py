@@ -1,4 +1,46 @@
+import asyncio
 import aiohttp
+
+
+async def validate_cities_in_country(cities: list, country: str) -> tuple:
+    """
+    Check that every city in the list belongs to the given country.
+    Returns (city, actual_country) for the first mismatch, or None if all valid.
+    Geocodes each city and compares the returned country name against the target.
+    """
+    try:
+        url = 'https://geocoding-api.open-meteo.com/v1/search'
+        timeout = aiohttp.ClientTimeout(total=4)
+
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async def check_city(city: str):
+                params = {'name': city, 'count': 5, 'language': 'en', 'format': 'json'}
+                try:
+                    async with session.get(url, params=params) as resp:
+                        data = await resp.json()
+                        results = data.get('results', [])
+                        if not results:
+                            return None  # Can't find city — let it through
+
+                        country_lower = country.lower()
+                        for r in results:
+                            rc = r.get('country', '').lower()
+                            if country_lower in rc or rc in country_lower:
+                                return None  # valid — city found in target country
+
+                        # None of the top results are in the target country
+                        actual = results[0].get('country', 'another country')
+                        return (city, actual)
+                except Exception:
+                    return None  # Fail open on timeout/error
+
+            results = await asyncio.gather(*[check_city(c) for c in cities])
+            for r in results:
+                if r is not None:
+                    return r
+            return None
+    except Exception:
+        return None
 
 
 async def autocorrect_location(location: str) -> dict:

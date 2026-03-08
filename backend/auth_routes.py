@@ -5,6 +5,7 @@ from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 import os
 import json
+import secrets
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -149,7 +150,7 @@ def get_profile():
     """Get current user's profile"""
     try:
         user_id = get_jwt_identity()
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
 
         if not user:
             return jsonify({'error': 'User not found'}), 404
@@ -167,7 +168,7 @@ def update_profile():
     """Update user profile"""
     try:
         user_id = get_jwt_identity()
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
 
         if not user:
             return jsonify({'error': 'User not found'}), 404
@@ -359,3 +360,53 @@ def delete_trip(trip_id):
         db.session.rollback()
         print(f'Delete trip error: {e}')
         return jsonify({'error': 'Failed to delete trip'}), 500
+
+
+@auth_bp.route('/trips/<int:trip_id>/share', methods=['POST'])
+@jwt_required()
+def share_trip(trip_id):
+    """Generate a share token for a trip"""
+    try:
+        user_id = get_jwt_identity()
+        trip = SavedTrip.query.filter_by(id=trip_id, user_id=user_id).first()
+
+        if not trip:
+            return jsonify({'error': 'Trip not found'}), 404
+
+        if not trip.share_token:
+            trip.share_token = secrets.token_urlsafe(16)
+            db.session.commit()
+
+        return jsonify({'share_token': trip.share_token}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print(f'Share trip error: {e}')
+        return jsonify({'error': 'Failed to generate share link'}), 500
+
+
+@auth_bp.route('/shared-trip/<token>', methods=['GET'])
+def get_shared_trip(token):
+    """Get a shared trip by token (public endpoint, no auth required)"""
+    try:
+        trip = SavedTrip.query.filter_by(share_token=token).first()
+
+        if not trip:
+            return jsonify({'error': 'Shared trip not found'}), 404
+
+        creator = db.session.get(User, trip.user_id)
+        creator_data = None
+        if creator:
+            creator_data = {
+                'username': creator.username,
+                'profile_picture': creator.profile_picture
+            }
+
+        return jsonify({
+            'trip': trip.to_dict(include_data=True),
+            'creator': creator_data
+        }), 200
+
+    except Exception as e:
+        print(f'Get shared trip error: {e}')
+        return jsonify({'error': 'Failed to get shared trip'}), 500

@@ -9,6 +9,7 @@ interface User {
   email: string;
   username: string;
   profile_picture?: string;
+  has_password?: boolean;
   trip_count: number;
 }
 
