@@ -123,93 +123,41 @@ export default function SearchPage() {
     }
   };
 
-  // Check if input is an airport code (3-4 uppercase letters)
-  function isAirportCode(location: string): boolean {
-    return /^[A-Z]{3,4}$/i.test(location.trim());
-  }
-
-  // Validate location using Nominatim API
-  async function validateLocation(location: string, isOrigin: boolean = false): Promise<boolean> {
-    try {
-      // If it's an airport code (e.g., SFO, LAX, JFK), consider it valid for origin
-      if (isOrigin && isAirportCode(location)) {
-        return true;
-      }
-
-      const response = await axios.get(`https://nominatim.openstreetmap.org/search`, {
-        params: {
-          q: location,
-          format: 'json',
-          limit: 5,
-          addressdetails: 1
-        },
-        headers: {
-          'User-Agent': 'AI-Travel-Planner/1.0'
-        }
-      });
-
-      if (!response.data || response.data.length === 0) {
-        return false;
-      }
-
-      // Check if any result is a valid destination (city, town, state, country, etc.)
-      // Filter out low-level places like bars, restaurants, buildings
-      const validTypes = [
-        'city', 'town', 'village', 'municipality',
-        'state', 'province', 'region',
-        'country', 'administrative',
-        'county', 'district',
-        'aerodrome', 'airport' // Accept airports
-      ];
-
-      const hasValidPlace = response.data.some((result: any) => {
-        const type = result.type?.toLowerCase() || '';
-        const placeClass = result.class?.toLowerCase() || '';
-        const placeRank = result.place_rank || 0;
-
-        // Accept if it's a valid type or has a high enough place_rank (lower is better for cities)
-        return validTypes.some(validType => type.includes(validType) || placeClass.includes(validType))
-               || placeRank <= 16; // Cities typically have place_rank <= 16
-      });
-
-      return hasValidPlace;
-    } catch (error) {
-      console.error('Location validation error:', error);
-      return false;
-    }
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setLoadingStage('Analyzing your preferences...');
     setValidationError('');
 
-    try {
-      // Validate based on trip mode
-      if (tripMode === 'single') {
-        if (!country) {
-          setValidationError('Please select a country');
-          setLoading(false);
-          return;
-        }
-      } else {
-        // Multi-country mode validation
-        const emptyCountries = multiCountries.filter(c => !c.country.trim());
-        if (emptyCountries.length > 0) {
-          setValidationError('Please fill in all country fields');
-          setLoading(false);
-          return;
-        }
-        if (multiCountries.length < 2) {
-          setValidationError('Please add at least 2 countries for multi-country trip');
-          setLoading(false);
-          return;
-        }
-      }
+    // Clear stale trip data so the /trip page won't show old results if this request fails
+    sessionStorage.removeItem('tripData');
 
-      // Show different loading stages for user feedback
-      const stageInterval = setInterval(() => {
+    // Validate based on trip mode
+    if (tripMode === 'single') {
+      if (!country) {
+        setValidationError('Please select a country');
+        setLoading(false);
+        return;
+      }
+    } else {
+      const emptyCountries = multiCountries.filter(c => !c.country.trim());
+      if (emptyCountries.length > 0) {
+        setValidationError('Please fill in all country fields');
+        setLoading(false);
+        return;
+      }
+      if (multiCountries.length < 2) {
+        setValidationError('Please add at least 2 countries for multi-country trip');
+        setLoading(false);
+        return;
+      }
+    }
+
+    // Show different loading stages for user feedback
+    let stageInterval: ReturnType<typeof setInterval> | null = null;
+
+    try {
+      stageInterval = setInterval(() => {
         const stages = [
           'Analyzing your preferences...',
           'Creating personalized itinerary...',
@@ -258,14 +206,11 @@ export default function SearchPage() {
         });
       }
 
-      clearInterval(stageInterval);
+      if (stageInterval) clearInterval(stageInterval);
 
       // Check if destination was autocorrected
       if (resp.data.wasAutocorrected && resp.data.correctedDestination) {
-        // Show notification about autocorrection
-        const originalName = country;
-        const correctedName = resp.data.correctedDestination;
-        console.log(`Destination autocorrected: "${originalName}" → "${correctedName}"`);
+        console.log(`Destination autocorrected: "${country}" → "${resp.data.correctedDestination}"`);
       }
 
       // Store data in sessionStorage for the trip page
@@ -292,8 +237,14 @@ export default function SearchPage() {
 
       router.push('/trip');
     } catch (err: any) {
-      alert('Failed to plan trip: ' + (err?.response?.data?.error || err.message));
+      const msg = err?.response?.data?.error || err.message || 'Unknown error';
+      setValidationError(
+        msg === 'Network Error'
+          ? 'Could not reach the server. Please try again in a moment.'
+          : `Failed to plan trip: ${msg}`
+      );
     } finally {
+      if (stageInterval) clearInterval(stageInterval);
       setLoading(false);
       setLoadingStage('');
     }
