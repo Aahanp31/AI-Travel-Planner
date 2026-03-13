@@ -53,7 +53,7 @@ Use 2024-2025 prices. Numbers not strings. Brief notes."""
     try:
         response = await asyncio.wait_for(
             _client.aio.models.generate_content(
-                model='gemini-2.0-flash',
+                model='gemini-2.5-flash',
                 contents=prompt,
                 config=types.GenerateContentConfig(temperature=0.1, max_output_tokens=1024),
             ),
