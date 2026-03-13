@@ -206,7 +206,12 @@ export default function SharedTripPage() {
             <BudgetCard budget={tripData.result.budget} />
           )}
           {activeTab === 'bookings' && tripData.result?.bookings && (
-            <BookingsCard bookings={tripData.result.bookings} />
+            <BookingsCard
+              bookings={tripData.result.bookings}
+              origin={tripData.origin}
+              destination={displayTitle}
+              startDate={tripData.startDate}
+            />
           )}
           {activeTab === 'map' && tripData.result?.mapData && (
             <MapEmbed mapData={tripData.result.mapData} destination={displayTitle} />
