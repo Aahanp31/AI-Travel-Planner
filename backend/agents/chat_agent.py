@@ -67,7 +67,11 @@ Be conversational and helpful. If unclear, ask for clarification."""
             _client.aio.models.generate_content(
                 model='gemini-2.5-flash',
                 contents=prompt,
-                config=types.GenerateContentConfig(temperature=0.7, max_output_tokens=1024),
+                config=types.GenerateContentConfig(
+                    temperature=0.7,
+                    max_output_tokens=4096,
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
+                ),
             ),
             timeout=60.0
         )

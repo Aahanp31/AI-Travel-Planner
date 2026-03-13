@@ -297,14 +297,18 @@ Return ONLY valid JSON with keys 'day1', 'day2', etc. Example:
   }}
 }}{additional_context}"""
 
-    max_tokens = 3072 if detail_level == 'comprehensive' else 2048
+    max_tokens = 16000 if detail_level == 'comprehensive' else 8000
 
     try:
         response = await asyncio.wait_for(
             _client.aio.models.generate_content(
                 model='gemini-2.5-flash',
                 contents=prompt,
-                config=types.GenerateContentConfig(temperature=0.7, max_output_tokens=max_tokens),
+                config=types.GenerateContentConfig(
+                    temperature=0.7,
+                    max_output_tokens=max_tokens,
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
+                ),
             ),
             timeout=90.0
         )
