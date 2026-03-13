@@ -31,6 +31,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const setAuthState = (access_token: string, userData: User) => {
+    localStorage.setItem('auth_token', access_token);
+    localStorage.setItem('user', JSON.stringify(userData));
+    setToken(access_token);
+    setUser(userData);
+    axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+  };
+
   // Load token and user from localStorage on mount
   useEffect(() => {
     const storedToken = localStorage.getItem('auth_token');
@@ -54,17 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       const { access_token, user: userData } = response.data;
-
-      // Store in localStorage
-      localStorage.setItem('auth_token', access_token);
-      localStorage.setItem('user', JSON.stringify(userData));
-
-      // Update state
-      setToken(access_token);
-      setUser(userData);
-
-      // Set axios default header
-      axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+      setAuthState(access_token, userData);
     } catch (error: any) {
       console.error('Login error:', error);
       throw new Error(error.response?.data?.error || 'Login failed');
@@ -80,17 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       const { access_token, user: userData } = response.data;
-
-      // Store in localStorage
-      localStorage.setItem('auth_token', access_token);
-      localStorage.setItem('user', JSON.stringify(userData));
-
-      // Update state
-      setToken(access_token);
-      setUser(userData);
-
-      // Set axios default header
-      axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+      setAuthState(access_token, userData);
     } catch (error: any) {
       console.error('Signup error:', error);
       throw new Error(error.response?.data?.error || 'Signup failed');
@@ -104,17 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       const { access_token, user: userData } = response.data;
-
-      // Store in localStorage
-      localStorage.setItem('auth_token', access_token);
-      localStorage.setItem('user', JSON.stringify(userData));
-
-      // Update state
-      setToken(access_token);
-      setUser(userData);
-
-      // Set axios default header
-      axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+      setAuthState(access_token, userData);
     } catch (error: any) {
       console.error('Google auth error:', error);
       throw new Error(error.response?.data?.error || 'Google authentication failed');

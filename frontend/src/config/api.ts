@@ -7,6 +7,10 @@
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
+export const getAuthHeaders = () => ({
+  Authorization: `Bearer ${localStorage.getItem('auth_token')}`
+});
+
 export const API_ENDPOINTS = {
   // Auth endpoints
   signup: `${API_URL}/api/auth/signup`,

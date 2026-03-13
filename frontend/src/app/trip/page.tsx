@@ -5,14 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import dynamic from 'next/dynamic';
 import axios from 'axios';
-import { API_ENDPOINTS } from '@/config/api';
-import ItineraryCard from '@/components/ItineraryCard';
-import BudgetCard from '@/components/BudgetCard';
-import BookingsCard from '@/components/BookingsCard';
-import WeatherCard from '@/components/WeatherCard';
-import NewsCard from '@/components/NewsCard';
-import ChatBot from '@/components/ChatBot';
-import AuthModal from '@/components/AuthModal';
+import { API_ENDPOINTS, getAuthHeaders } from '@/config/api';
+import { ItineraryCard, BudgetCard, BookingsCard, WeatherCard, NewsCard, ChatBot } from '@/components/trip';
+import { AuthModal } from '@/components/auth';
 import { TripResponse } from '@/types';
 import {
   ArrowLeftIcon,
@@ -29,7 +24,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 // Import MapEmbed dynamically to avoid SSR issues with Leaflet
-const MapEmbed = dynamic(() => import('@/components/MapEmbed'), {
+const MapEmbed = dynamic(() => import('@/components/trip/MapEmbed'), {
   ssr: false,
   loading: () => <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-md h-[600px] flex items-center justify-center text-gray-500">Loading map...</div>
 });
@@ -103,7 +98,7 @@ export default function TripPage() {
         },
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('auth_token')}`
+            ...getAuthHeaders()
           }
         }
       );

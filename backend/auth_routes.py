@@ -24,11 +24,13 @@ def signup():
         if not email or not username or not password:
             return jsonify({'error': 'Email, username, and password are required'}), 400
 
-        # Check if user already exists
-        if User.query.filter_by(email=email).first():
-            return jsonify({'error': 'Email already registered'}), 400
-
-        if User.query.filter_by(username=username).first():
+        # Check if user already exists — single query instead of two
+        existing = User.query.filter(
+            (User.email == email) | (User.username == username)
+        ).first()
+        if existing:
+            if existing.email == email:
+                return jsonify({'error': 'Email already registered'}), 400
             return jsonify({'error': 'Username already taken'}), 400
 
         # Create new user
@@ -176,22 +178,29 @@ def update_profile():
         data = request.get_json()
 
         # Update username if provided
-        if 'username' in data:
-            new_username = data['username']
-            if new_username != user.username:
-                # Check if username is taken
-                if User.query.filter_by(username=new_username).first():
-                    return jsonify({'error': 'Username already taken'}), 400
-                user.username = new_username
+        new_username = data.get('username')
+        new_email = data.get('email')
 
-        # Update email if provided
-        if 'email' in data:
-            new_email = data['email']
-            if new_email != user.email:
-                # Check if email is taken
-                if User.query.filter_by(email=new_email).first():
+        # Single query to check both uniqueness constraints at once
+        if (new_username and new_username != user.username) or (new_email and new_email != user.email):
+            conditions = []
+            if new_username and new_username != user.username:
+                conditions.append(User.username == new_username)
+            if new_email and new_email != user.email:
+                conditions.append(User.email == new_email)
+            if conditions:
+                from sqlalchemy import or_
+                conflict = User.query.filter(or_(*conditions)).first()
+                if conflict:
+                    if new_username and conflict.username == new_username:
+                        return jsonify({'error': 'Username already taken'}), 400
                     return jsonify({'error': 'Email already registered'}), 400
-                user.email = new_email
+
+        if new_username and new_username != user.username:
+            user.username = new_username
+
+        if new_email and new_email != user.email:
+            user.email = new_email
 
         # Update password if provided
         if 'password' in data and data['password']:

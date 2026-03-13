@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { API_ENDPOINTS } from '@/config/api';
+import { API_ENDPOINTS, getAuthHeaders } from '@/config/api';
 import {
   MapPinIcon,
   CalendarDaysIcon,
@@ -51,7 +51,7 @@ export default function SavedTripsPage() {
     try {
       const response = await axios.get(API_ENDPOINTS.getTrips, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('auth_token')}`
+          ...getAuthHeaders()
         }
       });
 
@@ -71,7 +71,7 @@ export default function SavedTripsPage() {
         { is_favorite: !currentFavorite },
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('auth_token')}`
+            ...getAuthHeaders()
           }
         }
       );
@@ -91,7 +91,7 @@ export default function SavedTripsPage() {
     try {
       await axios.delete(API_ENDPOINTS.deleteTrip(tripId), {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('auth_token')}`
+          ...getAuthHeaders()
         }
       });
 
@@ -106,7 +106,7 @@ export default function SavedTripsPage() {
     try {
       const response = await axios.get(API_ENDPOINTS.getTrip(tripId), {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('auth_token')}`
+          ...getAuthHeaders()
         }
       });
 

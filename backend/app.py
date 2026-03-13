@@ -44,15 +44,10 @@ DATABASE_URL = DATABASE_URL.strip()
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Detect connection type: Supabase pooler (PgBouncer) vs direct PostgreSQL vs SQLite
-_is_sqlite = DATABASE_URL.startswith('sqlite')
+# Detect connection type: Supabase pooler (PgBouncer) vs direct PostgreSQL
 _is_pooler = 'pooler.supabase.com' in DATABASE_URL or ':6543/' in DATABASE_URL
 
-if _is_sqlite:
-    # SQLite: no connection pool args needed
-    _connect_args = {}
-    _pool_kwargs = {}
-elif _is_pooler:
+if _is_pooler:
     # Supabase transaction pooler (PgBouncer): keepalives not supported
     _connect_args = {'connect_timeout': 10}
     _pool_kwargs = {'pool_size': 5, 'max_overflow': 10}

@@ -5,11 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import axios from 'axios';
 import dynamic from 'next/dynamic';
 import { API_ENDPOINTS } from '@/config/api';
-import ItineraryCard from '@/components/ItineraryCard';
-import BudgetCard from '@/components/BudgetCard';
-import BookingsCard from '@/components/BookingsCard';
-import WeatherCard from '@/components/WeatherCard';
-import NewsCard from '@/components/NewsCard';
+import { ItineraryCard, BudgetCard, BookingsCard, WeatherCard, NewsCard } from '@/components/trip';
 import {
   ArrowLeftIcon,
   MapPinIcon,
@@ -22,7 +18,7 @@ import {
   UserCircleIcon
 } from '@heroicons/react/24/outline';
 
-const MapEmbed = dynamic(() => import('@/components/MapEmbed'), {
+const MapEmbed = dynamic(() => import('@/components/trip/MapEmbed'), {
   ssr: false,
   loading: () => <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-md h-[600px] flex items-center justify-center text-gray-500">Loading map...</div>
 });

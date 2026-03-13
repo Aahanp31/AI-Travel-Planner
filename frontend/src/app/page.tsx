@@ -58,6 +58,64 @@ interface CountrySegment {
   days: number;
 }
 
+function getTripError(err: any): string {
+  const status = err?.response?.status;
+  const error = err?.response?.data?.error ?? '';
+  const details = (err?.response?.data?.details ?? '').toLowerCase();
+
+  // Network / connectivity
+  if (err?.message === 'Network Error' || err?.code === 'ERR_NETWORK') {
+    return 'Cannot reach the server. Check your internet connection or try again in a moment.';
+  }
+
+  // Gateway timeout (Gunicorn / Render cut the request)
+  if (status === 504 || status === 524 || err?.code === 'ECONNABORTED') {
+    return 'Trip planning timed out. Try fewer days, fewer locations, or a shorter additional details section.';
+  }
+
+  // Google Gemini quota / billing
+  if (
+    details.includes('quota') ||
+    details.includes('resourceexhausted') ||
+    details.includes('429') ||
+    details.includes('billing') ||
+    details.includes('api key')
+  ) {
+    return 'The AI service is temporarily unavailable (API quota reached). Please try again in a few minutes.';
+  }
+
+  // Server crashed
+  if (status === 500) {
+    return 'The server encountered an unexpected error. Please try again — if it persists, the service may be restarting.';
+  }
+
+  // 503 / 502 — server down or deploying
+  if (status === 502 || status === 503) {
+    return 'The server is currently unavailable. It may be restarting — please try again in 30 seconds.';
+  }
+
+  // City / country validation errors from the backend
+  if (error.includes('is not in') || error.includes('Please enter cities')) {
+    return error;
+  }
+
+  // Any other backend error message
+  if (error) return error;
+
+  return 'Something went wrong while planning your trip. Please try again.';
+}
+
+const LOADING_STAGES = [
+  'Analyzing your preferences...',
+  'Creating personalized itinerary...',
+  'Finding best attractions...',
+  'Calculating budget estimates...',
+  'Searching for accommodations...',
+  'Checking weather forecasts...',
+  'Gathering local news...',
+  'Finalizing your trip plan...'
+];
+
 export default function SearchPage() {
   const [tripMode, setTripMode] = useState<'single' | 'multi'>('single');
   const [country, setCountry] = useState('');
@@ -158,17 +216,7 @@ export default function SearchPage() {
 
     try {
       stageInterval = setInterval(() => {
-        const stages = [
-          'Analyzing your preferences...',
-          'Creating personalized itinerary...',
-          'Finding best attractions...',
-          'Calculating budget estimates...',
-          'Searching for accommodations...',
-          'Checking weather forecasts...',
-          'Gathering local news...',
-          'Finalizing your trip plan...'
-        ];
-        setLoadingStage(stages[Math.floor(Math.random() * stages.length)]);
+        setLoadingStage(LOADING_STAGES[Math.floor(Math.random() * LOADING_STAGES.length)]);
       }, 4000);
 
       // Build additional details with trip pace
@@ -237,12 +285,7 @@ export default function SearchPage() {
 
       router.push('/trip');
     } catch (err: any) {
-      const msg = err?.response?.data?.error || err.message || 'Unknown error';
-      setValidationError(
-        msg === 'Network Error'
-          ? 'Could not reach the server. Please try again in a moment.'
-          : `Failed to plan trip: ${msg}`
-      );
+      setValidationError(getTripError(err));
     } finally {
       if (stageInterval) clearInterval(stageInterval);
       setLoading(false);

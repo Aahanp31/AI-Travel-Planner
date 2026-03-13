@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { API_ENDPOINTS } from '@/config/api';
+import { API_ENDPOINTS, getAuthHeaders } from '@/config/api';
 import {
   UserCircleIcon,
   EnvelopeIcon,
@@ -53,7 +53,7 @@ export default function ProfilePage() {
         },
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('auth_token')}`
+            ...getAuthHeaders()
           }
         }
       );
@@ -92,7 +92,7 @@ export default function ProfilePage() {
         },
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('auth_token')}`
+            ...getAuthHeaders()
           }
         }
       );

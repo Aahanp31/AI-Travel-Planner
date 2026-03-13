@@ -3,6 +3,9 @@ import re
 
 import aiohttp
 
+# Module-level geocode cache — persists across requests within the same worker
+_geocode_cache: dict = {}
+
 
 async def map_agent(country: str, itinerary: dict, locations: str = None) -> list:
     """
@@ -25,7 +28,12 @@ async def map_agent(country: str, itinerary: dict, locations: str = None) -> lis
         geocode_context = country
 
     async def geocode_single(session, name, delay: float = 0.0):
-        """Geocode a single attraction."""
+        """Geocode a single attraction, with in-process cache."""
+        cache_key = f'{name}|{geocode_context}'
+        if cache_key in _geocode_cache:
+            print(f'⚡ Cache hit: {name}')
+            return _geocode_cache[cache_key]
+
         try:
             if delay:
                 await asyncio.sleep(delay)
@@ -41,8 +49,7 @@ async def map_agent(country: str, itinerary: dict, locations: str = None) -> lis
                     lat = float(data[0]['lat'])
                     lon = float(data[0]['lon'])
 
-                    print(f'✓ Geocoded: {name}')
-                    return {
+                    result = {
                         'name': name,
                         'type': 'attraction',
                         'location': {
@@ -50,6 +57,9 @@ async def map_agent(country: str, itinerary: dict, locations: str = None) -> lis
                             'lng': lon
                         }
                     }
+                    _geocode_cache[cache_key] = result
+                    print(f'✓ Geocoded: {name}')
+                    return result
                 else:
                     print(f'✗ Could not geocode: {name}')
                     return None
